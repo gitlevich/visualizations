@@ -176,21 +176,18 @@
 
   #mind-sigil-3d .ms3-label {
     position: absolute;
-    max-width: 7.5rem;
-    min-height: 1.7rem;
-    padding: 0.16rem 0.32rem;
+    max-width: 6.4rem;
+    padding: 0.08rem 0.2rem;
     border: 0;
-    border-radius: 0.4rem;
-    background: color-mix(in srgb, var(--card) 56%, transparent);
+    border-radius: 0.24rem;
+    background: color-mix(in srgb, var(--card) 44%, transparent);
     font: inherit;
-    font-size: 0.74rem;
-    line-height: 1.15;
+    font-size: 0.68rem;
+    line-height: 1.05;
     text-align: center;
     color: var(--foreground);
     transform: translate(-50%, -50%);
-    pointer-events: auto;
-    touch-action: manipulation;
-    cursor: pointer;
+    pointer-events: none;
   }
 
   #mind-sigil-3d .ms3-label[data-relation="neighbor"] {
@@ -200,8 +197,7 @@
   }
 
   #mind-sigil-3d .ms3-label[data-kind="exit"] {
-    max-width: 12rem;
-    min-height: 1.6rem;
+    max-width: 9rem;
     white-space: nowrap;
     color: var(--foreground);
     background: color-mix(in srgb, var(--card) 42%, transparent);
@@ -266,7 +262,8 @@
     }
 
     #mind-sigil-3d .ms3-label {
-      max-width: 5.8rem;
+      max-width: 5.15rem;
+      font-size: 0.66rem;
     }
 
     #mind-sigil-3d .ms3-detail-grid {
@@ -283,7 +280,7 @@
 <section id="mind-sigil-3d" aria-labelledby="ms3-title">
   <header class="ms3-header">
     <h2 id="ms3-title">Philosophical taxonomies as recursive sigils</h2>
-    <p>Opaque children float inside the current translucent sigil; neighboring scopes open as portals in its wall.</p>
+    <p>Opaque children float inside the current sigil; neighboring scopes open as portals in its wall.</p>
   </header>
 
   <label class="form-label ms3-map-control" for="ms3-map">Taxonomy
@@ -351,6 +348,7 @@ let upSigilEntry;
 let upSigilPosition;
 let palette = [];
 let neutralColor;
+let wallColor;
 let attentionColor;
 
 let currentWorldRadius = 5.8;
@@ -383,6 +381,7 @@ function updatePalette() {
     new THREE.Color(resolveColor("--viz-series-" + index))
   );
   neutralColor = new THREE.Color(resolveColor("--muted-foreground"));
+  wallColor = new THREE.Color(resolveColor("--background")).lerp(neutralColor, 0.05);
   attentionColor = new THREE.Color(resolveColor("--yellow"));
 }
 
@@ -506,13 +505,14 @@ function fishbowlLattice(radius, color, opacity) {
 function makeFishbowl(node, radius, color, options = {}) {
   const group = new THREE.Group();
   const opacity = options.opacity === undefined ? 0.18 : options.opacity;
+  const opaque = Boolean(options.opaque);
   const shell = new THREE.Mesh(
     fishbowlGeometry(radius),
     new THREE.MeshBasicMaterial({
       color,
-      transparent: true,
-      opacity,
-      depthWrite: false,
+      transparent: !opaque,
+      opacity: opaque ? 1 : opacity,
+      depthWrite: opaque,
       side: THREE.DoubleSide
     })
   );
@@ -522,9 +522,9 @@ function makeFishbowl(node, radius, color, options = {}) {
     new THREE.TorusGeometry(openingRadius, Math.max(0.018, radius * 0.025), 8, 72),
     new THREE.MeshBasicMaterial({
       color,
-      transparent: true,
-      opacity: options.exit ? 0.72 : Math.min(0.9, opacity * 3.8),
-      depthWrite: false
+      transparent: !opaque,
+      opacity: opaque ? 1 : (options.exit ? 0.72 : Math.min(0.9, opacity * 3.8)),
+      depthWrite: opaque
     })
   );
   rim.rotation.x = Math.PI / 2;
@@ -554,7 +554,11 @@ function makeFishbowl(node, radius, color, options = {}) {
 
   group.add(shell, rim);
   if (options.latticeOpacity) {
-    const lattice = fishbowlLattice(radius * 1.002, color, options.latticeOpacity);
+    const lattice = fishbowlLattice(
+      radius * (opaque ? 0.994 : 1.002),
+      neutralColor,
+      options.latticeOpacity
+    );
     group.add(lattice);
   }
   if (options.renderOrder !== undefined) {
@@ -579,6 +583,7 @@ function makeExteriorSigil(node, radius, color, options = {}) {
   );
   if (options.exit) sphere.userData.exitCurrent = true;
   else sphere.userData.nodeId = node.id;
+  sphere.userData.labelKey = options.exit ? "__up__" : node.id;
   if (options.renderOrder !== undefined) sphere.renderOrder = options.renderOrder;
   group.add(sphere);
   return { group, shell: sphere, radius };
@@ -644,6 +649,9 @@ function makeNeighborPortal(node, direction, color, options = {}) {
   opening.userData.nodeId = node.id;
 
   group.add(tunnel, outerRing, opening, innerRing);
+  group.traverse((object) => {
+    if (object.isMesh) object.userData.labelKey = node.id;
+  });
   return { group, radius, length, direction: direction.clone(), mouth };
 }
 
@@ -741,13 +749,21 @@ function semanticColor(parentNode, node, fallbackIndex = 0) {
   return palette[cluster % palette.length].clone();
 }
 
-function scaledSemanticLayout(parentNode, children, scale) {
+function scaledSemanticLayout(parentNode, children, extent) {
   const group = semanticGroupData(parentNode);
   if (!group || !group.children) return null;
   if (!children.every((child) => group.children[child.id])) return null;
-  const semanticScale = scale * (group.spread || 1);
-  return children.map((child) => {
-    const encoded = group.children[child.id];
+  const points = children.map((child) => group.children[child.id].slice(0, 3));
+  const centroid = points.reduce(
+    (sum, point) => sum.map((value, axis) => value + point[axis]),
+    [0, 0, 0]
+  ).map((value) => value / Math.max(1, points.length));
+  const centered = points.map((point) => point.map((value, axis) => value - centroid[axis]));
+  const maximumRadius = Math.max(...centered.map((point) => Math.hypot(...point)));
+  if (maximumRadius < 1e-6) return null;
+  const semanticScale = extent / maximumRadius;
+  return children.map((child, index) => {
+    const encoded = centered[index];
     return {
       child,
       x: encoded[0] * semanticScale,
@@ -758,13 +774,14 @@ function scaledSemanticLayout(parentNode, children, scale) {
 }
 
 function childLayout(children) {
+  const extent = currentWorldRadius * (worldStack.length ? 0.76 : 0.72);
   const semantic = scaledSemanticLayout(
     currentNode,
     children,
-    currentWorldRadius * (worldStack.length ? 0.61 : 0.63)
+    extent
   );
   if (semantic) return semantic;
-  return sphericalLayout(children, currentWorldRadius * 0.55);
+  return sphericalLayout(children, extent);
 }
 
 function neighborLayout(parentNode, neighbors) {
@@ -811,38 +828,29 @@ function neighborLayout(parentNode, neighbors) {
 }
 
 function makeNodeLabel(node, position, relation) {
-  const element = document.createElement("button");
-  element.type = "button";
+  const element = document.createElement("span");
   element.className = "ms3-label text-small";
   element.dataset.kind = "node";
   element.dataset.relation = relation;
   element.textContent = shortLabels[node.id] || node.label.replace(/^\d+\.\s*/, "");
-  element.setAttribute(
-    "aria-label",
-    (relation === "neighbor" ? "Move to neighboring sigil " : "Enter ") + node.label
-  );
-  element.addEventListener("click", () => {
-    if (relation === "neighbor") moveToNeighbor(node);
-    else enterNode(node);
-  });
+  element.setAttribute("aria-hidden", "true");
   labelLayer.append(element);
-  labelEntries.push({ position, element, relation });
+  labelEntries.push({ position, element, relation, labelKey: node.id });
 }
 
 function makeExitLabel(parentNode, position) {
-  const element = document.createElement("button");
-  element.type = "button";
+  const element = document.createElement("span");
   element.className = "ms3-label text-small";
   element.dataset.kind = "exit";
   element.dataset.relation = "exit";
   element.textContent = "↑ " + (shortLabels[parentNode.id] || parentNode.label.replace(/^\d+\.\s*/, ""));
-  element.setAttribute("aria-label", "Return to " + parentNode.label);
-  element.addEventListener("click", exitCurrent);
+  element.setAttribute("aria-hidden", "true");
   labelLayer.append(element);
   labelEntries.push({
     position: position.clone(),
     element,
-    relation: "exit"
+    relation: "exit",
+    labelKey: "__up__"
   });
 }
 
@@ -851,6 +859,23 @@ function updateLabels() {
   const height = sceneElement.clientHeight;
   const compact = width <= 520;
   const candidates = [];
+  const labelRaycaster = new THREE.Raycaster();
+
+  const occluded = (entry) => {
+    const direction = entry.position.clone().sub(camera.position);
+    const distanceToLabel = direction.length();
+    if (distanceToLabel < 1e-5) return false;
+    labelRaycaster.set(camera.position, direction.normalize());
+    labelRaycaster.near = 0.02;
+    labelRaycaster.far = distanceToLabel + 0.03;
+    const firstLabeledSurface = labelRaycaster
+      .intersectObjects(worldGroup.children, true)
+      .find((hit) => hit.object.userData.labelKey);
+    return Boolean(
+      firstLabeledSurface
+      && firstLabeledSurface.object.userData.labelKey !== entry.labelKey
+    );
+  };
 
   labelEntries.forEach((entry) => {
     entry.element.hidden = true;
@@ -864,12 +889,14 @@ function updateLabels() {
       && Math.abs(projected.x) < frameLimit
       && Math.abs(projected.y) < frameLimit;
     if (!visible) return;
+    if (occluded(entry)) return;
     const x = (projected.x * 0.5 + 0.5) * width;
     const y = (-projected.y * 0.5 + 0.5) * height;
     candidates.push({
       entry,
       x,
       y,
+      depth: projected.z,
       score: projected.x * projected.x + projected.y * projected.y
     });
   });
@@ -879,6 +906,7 @@ function updateLabels() {
     candidate.entry.element.hidden = false;
     candidate.entry.element.style.left = candidate.x + "px";
     candidate.entry.element.style.top = candidate.y + "px";
+    candidate.entry.element.style.zIndex = String(Math.round((1 - candidate.depth) * 1000));
     occupied.push(candidate);
   };
   const separated = (candidate) => occupied.every((shown) =>
@@ -1077,10 +1105,10 @@ function renderCurrent(options = {}) {
   const currentBoundary = makeFishbowl(
     currentNode,
     currentWorldRadius,
-    neutralColor,
+    wallColor,
     {
-      opacity: parentNode ? 0.085 : 0.072,
-      latticeOpacity: parentNode ? 0.2 : 0.16,
+      opaque: true,
+      latticeOpacity: parentNode ? 0.16 : 0.13,
       renderOrder: 1
     }
   );
