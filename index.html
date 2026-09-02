@@ -176,13 +176,15 @@
 
   #mind-sigil-3d .ms3-label {
     position: absolute;
-    max-width: 9rem;
-    min-height: 2rem;
-    padding: 0.25rem 0.45rem;
+    max-width: 7.5rem;
+    min-height: 1.7rem;
+    padding: 0.16rem 0.32rem;
     border: 0;
-    border-radius: 0.55rem;
-    background: color-mix(in srgb, var(--card) 78%, transparent);
+    border-radius: 0.4rem;
+    background: color-mix(in srgb, var(--card) 56%, transparent);
     font: inherit;
+    font-size: 0.74rem;
+    line-height: 1.15;
     text-align: center;
     color: var(--foreground);
     transform: translate(-50%, -50%);
@@ -191,18 +193,19 @@
     cursor: pointer;
   }
 
-  #mind-sigil-3d .ms3-label[data-kind="exit"] {
-    color: var(--yellow);
-    border: 1px solid currentColor;
-    background: color-mix(in srgb, var(--background) 76%, transparent);
+  #mind-sigil-3d .ms3-label[data-relation="neighbor"] {
+    background: color-mix(in srgb, var(--card) 28%, transparent);
+    color: var(--muted-foreground);
+    opacity: 0.68;
   }
 
-  #mind-sigil-3d .ms3-help {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    color: var(--muted-foreground);
-    pointer-events: none;
+  #mind-sigil-3d .ms3-label[data-kind="exit"] {
+    max-width: 12rem;
+    min-height: 1.6rem;
+    white-space: nowrap;
+    color: var(--yellow);
+    border: 1px solid currentColor;
+    background: color-mix(in srgb, var(--background) 58%, transparent);
   }
 
   #mind-sigil-3d .ms3-detail {
@@ -242,6 +245,12 @@
     font-weight: 500;
   }
 
+  #mind-sigil-3d .ms3-count {
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
   @media (max-width: 520px) {
     #mind-sigil-3d .ms3-header {
       margin-bottom: 0.35rem;
@@ -257,7 +266,7 @@
     }
 
     #mind-sigil-3d .ms3-label {
-      max-width: 6.5rem;
+      max-width: 5.8rem;
     }
 
     #mind-sigil-3d .ms3-detail-grid {
@@ -287,7 +296,6 @@
   <div id="ms3-scene" class="ms3-scene">
     <canvas id="ms3-canvas" aria-label="Interactive three-dimensional recursive sigil structure"></canvas>
     <div id="ms3-labels" class="ms3-label-layer"></div>
-    <span class="ms3-help text-small">Tap an inner sigil to enter · tap the enclosing opening to return · drag the scene to turn it</span>
   </div>
 
   <div id="ms3-detail" class="card ms3-detail" aria-live="polite"></div>
@@ -544,6 +552,9 @@ function makeFishbowl(node, radius, color, options = {}) {
     const lattice = fishbowlLattice(radius * 1.002, color, options.latticeOpacity);
     group.add(lattice);
   }
+  if (options.renderOrder !== undefined) {
+    group.traverse((object) => { object.renderOrder = options.renderOrder; });
+  }
   return { group, shell, rim, radius, openingHeight, openingRadius };
 }
 
@@ -603,6 +614,7 @@ function makeNodeLabel(node, position, relation) {
   element.type = "button";
   element.className = "ms3-label text-small";
   element.dataset.kind = "node";
+  element.dataset.relation = relation;
   element.textContent = shortLabels[node.id] || node.label.replace(/^\d+\.\s*/, "");
   element.setAttribute(
     "aria-label",
@@ -621,7 +633,8 @@ function makeExitLabel(parentNode) {
   element.type = "button";
   element.className = "ms3-label text-small";
   element.dataset.kind = "exit";
-  element.textContent = "↑ " + parentNode.label;
+  element.dataset.relation = "exit";
+  element.textContent = "↑ " + (shortLabels[parentNode.id] || parentNode.label.replace(/^\d+\.\s*/, ""));
   element.setAttribute("aria-label", "Return to " + parentNode.label);
   element.addEventListener("click", exitCurrent);
   labelLayer.append(element);
@@ -637,7 +650,11 @@ function makeExitLabel(parentNode) {
 function updateLabels() {
   const width = sceneElement.clientWidth;
   const height = sceneElement.clientHeight;
+  const compact = width <= 520;
+  const candidates = [];
+
   labelEntries.forEach((entry) => {
+    entry.element.hidden = true;
     if (entry.relation === "exit") {
       entry.position.set(
         -Math.sin(yaw) * entry.openingRadius * 0.82,
@@ -646,14 +663,50 @@ function updateLabels() {
       );
     }
     const projected = entry.position.clone().project(camera);
-    const visible = projected.z > -1 && projected.z < 1;
-    entry.element.hidden = !visible;
+    const frameLimit = compact ? 0.82 : 0.92;
+    const visible = projected.z > -1 && projected.z < 1
+      && Math.abs(projected.x) < frameLimit
+      && Math.abs(projected.y) < frameLimit;
     if (!visible) return;
     const x = (projected.x * 0.5 + 0.5) * width;
     const y = (-projected.y * 0.5 + 0.5) * height;
-    entry.element.style.left = Math.max(18, Math.min(width - 18, x)) + "px";
-    entry.element.style.top = Math.max(18, Math.min(height - 18, y)) + "px";
+    candidates.push({
+      entry,
+      x,
+      y,
+      score: projected.x * projected.x + projected.y * projected.y
+    });
   });
+
+  const occupied = [];
+  const show = (candidate) => {
+    candidate.entry.element.hidden = false;
+    candidate.entry.element.style.left = candidate.x + "px";
+    candidate.entry.element.style.top = candidate.y + "px";
+    occupied.push(candidate);
+  };
+  const separated = (candidate) => occupied.every((shown) =>
+    Math.hypot(candidate.x - shown.x, candidate.y - shown.y) > (compact ? 82 : 72)
+  );
+  const showRelation = (relation, limit) => {
+    const ordered = candidates
+      .filter((candidate) => candidate.entry.relation === relation)
+      .sort((first, second) => first.score - second.score);
+    let shown = 0;
+    ordered.forEach((candidate) => {
+      if (shown >= limit || !separated(candidate)) return;
+      show(candidate);
+      shown += 1;
+    });
+  };
+
+  candidates
+    .filter((candidate) => candidate.entry.relation === "exit")
+    .sort((first, second) => first.score - second.score)
+    .slice(0, 1)
+    .forEach(show);
+  showRelation("child", compact ? 3 : 7);
+  showRelation("neighbor", compact ? 2 : 4);
 }
 
 function desiredCameraPosition() {
@@ -675,11 +728,11 @@ function resetOrbit() {
   if (worldStack.length) {
     targetY = -0.72;
     pitch = 1.02;
-    distance = 2.68;
+    distance = 2.78;
   } else {
     targetY = -1.15;
     pitch = currentNode.children.length > 8 ? 0.82 : 0.9;
-    distance = currentNode.children.length > 9 ? 5.0 : 4.65;
+    distance = currentNode.children.length > 9 ? 5.25 : 5.0;
   }
 }
 
@@ -755,9 +808,9 @@ function updateDetail() {
   const heading = document.createElement("h3");
   heading.textContent = currentNode.label;
   const badge = document.createElement("span");
-  badge.className = "viz-badge";
+  badge.className = "ms3-count";
   badge.textContent = parent
-    ? currentNode.children.length + " inside · " + neighborCount + " outside"
+    ? currentNode.children.length + " children · " + neighborCount + " neighbors"
     : currentNode.children.length + (currentNode.children.length === 1 ? " child" : " children");
   header.append(heading, badge);
 
@@ -802,7 +855,7 @@ function renderCurrent(options = {}) {
       parentNode,
       parentWorldRadius,
       neutralColor,
-      { opacity: 0.026, latticeOpacity: 0.075 }
+      { opacity: 0.018, latticeOpacity: 0.04, renderOrder: -2 }
     );
     worldGroup.add(parentBoundary.group);
   }
@@ -814,7 +867,12 @@ function renderCurrent(options = {}) {
     const radius = 0.46 + Math.min(0.2, Math.log2(descendants + 1) * 0.05);
     const siblingIndex = parentNode.children.findIndex((node) => node.id === neighbor.id);
     const color = palette[(siblingIndex < 0 ? index : siblingIndex) % palette.length];
-    const entry = makeFishbowl(neighbor, radius, color, { child: true, opacity: 0.16 });
+    const throughWallColor = color.clone().lerp(neutralColor, 0.58);
+    const entry = makeFishbowl(neighbor, radius, throughWallColor, {
+      child: true,
+      opacity: 0.1,
+      renderOrder: 0
+    });
     entry.relation = "neighbor";
     entry.group.position.set(item.x, -1.0, item.z);
     worldGroup.add(entry.group);
@@ -834,6 +892,7 @@ function renderCurrent(options = {}) {
     {
       opacity: parentNode ? 0.085 : 0.072,
       latticeOpacity: parentNode ? 0.2 : 0.16,
+      renderOrder: 1,
       exit: Boolean(parentNode)
     }
   );
@@ -847,7 +906,11 @@ function renderCurrent(options = {}) {
       ? 0.36 + Math.min(0.18, Math.log2(descendants + 1) * 0.045)
       : 0.56 + Math.min(0.34, Math.log2(descendants + 1) * 0.082);
     const color = palette[index % palette.length];
-    const entry = makeFishbowl(child, radius, color, { child: true, opacity: 0.19 });
+    const entry = makeFishbowl(child, radius, color, {
+      child: true,
+      opacity: 0.19,
+      renderOrder: 2
+    });
     entry.relation = "child";
     entry.group.position.set(item.x, parentNode ? -0.78 : -1.32, item.z);
     addRecursiveHints(entry.group, child, radius, color);
@@ -863,8 +926,14 @@ function renderCurrent(options = {}) {
 
   attentionMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.15, 22, 14),
-    new THREE.MeshBasicMaterial({ color: attentionColor })
+    new THREE.MeshBasicMaterial({
+      color: attentionColor,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false
+    })
   );
+  attentionMesh.renderOrder = 3;
   attentionMesh.position.set(0, 0.12, 0);
   attentionTarget = attentionMesh.position.clone();
   worldGroup.add(attentionMesh);
@@ -1011,6 +1080,7 @@ function resize() {
   const height = Math.max(1, sceneElement.clientHeight);
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
+  camera.fov = width <= 520 ? 78 : 64;
   camera.updateProjectionMatrix();
 }
 
