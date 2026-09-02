@@ -518,7 +518,7 @@ function makeFishbowl(node, radius, color, options = {}) {
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
-      opacity: Math.min(0.9, opacity * 3.8),
+      opacity: options.exit ? 0.72 : Math.min(0.9, opacity * 3.8),
       depthWrite: false
     })
   );
@@ -726,8 +726,8 @@ function applyOrbitCamera() {
 function resetOrbit() {
   yaw = 0.62;
   if (worldStack.length) {
-    targetY = -0.72;
-    pitch = 1.02;
+    targetY = 0.3;
+    pitch = 1.75;
     distance = 2.78;
   } else {
     targetY = -1.15;
@@ -1168,7 +1168,7 @@ async function initialize() {
         moved = true;
       }
       yaw -= dx * 0.008;
-      pitch = Math.max(0.17, Math.min(1.22, pitch - dy * 0.006));
+      pitch = Math.max(0.35, Math.min(2.5, pitch - dy * 0.006));
       lastPointer = { x: event.clientX, y: event.clientY };
     });
 
