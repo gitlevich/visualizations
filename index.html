@@ -194,9 +194,9 @@
   }
 
   #mind-sigil-3d .ms3-label[data-relation="neighbor"] {
-    background: color-mix(in srgb, var(--card) 28%, transparent);
-    color: var(--muted-foreground);
-    opacity: 0.68;
+    background: color-mix(in srgb, var(--card) 38%, transparent);
+    color: var(--foreground);
+    opacity: 0.84;
   }
 
   #mind-sigil-3d .ms3-label[data-kind="exit"] {
@@ -283,7 +283,7 @@
 <section id="mind-sigil-3d" aria-labelledby="ms3-title">
   <header class="ms3-header">
     <h2 id="ms3-title">Philosophical taxonomies as recursive sigils</h2>
-    <p>Opaque children float inside the current translucent sigil; neighbors remain visible beyond its wall.</p>
+    <p>Opaque children float inside the current translucent sigil; neighboring scopes open as portals in its wall.</p>
   </header>
 
   <label class="form-label ms3-map-control" for="ms3-map">Taxonomy
@@ -584,6 +584,82 @@ function makeExteriorSigil(node, radius, color, options = {}) {
   return { group, shell: sphere, radius };
 }
 
+function makeNeighborPortal(node, direction, color, options = {}) {
+  const group = new THREE.Group();
+  const radius = options.radius || 0.38;
+  const length = options.length || 0.62;
+  const mouth = direction.clone().multiplyScalar(currentWorldRadius - 0.08);
+  group.position.copy(mouth);
+
+  const ringGeometry = new THREE.TorusGeometry(radius, 0.045, 10, 48);
+  const ringMaterial = new THREE.MeshStandardMaterial({
+    color,
+    emissive: color.clone().multiplyScalar(0.12),
+    emissiveIntensity: 0.55,
+    roughness: 0.58,
+    metalness: 0
+  });
+  const orientRing = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 0, 1),
+    direction
+  );
+  const innerRing = new THREE.Mesh(ringGeometry, ringMaterial);
+  innerRing.quaternion.copy(orientRing);
+  innerRing.userData.nodeId = node.id;
+
+  const outerRing = new THREE.Mesh(ringGeometry.clone(), ringMaterial.clone());
+  outerRing.position.copy(direction.clone().multiplyScalar(length));
+  outerRing.quaternion.copy(orientRing);
+  outerRing.scale.setScalar(0.9);
+  outerRing.userData.nodeId = node.id;
+
+  const tunnel = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.9, radius, length, 32, 1, true),
+    new THREE.MeshStandardMaterial({
+      color,
+      transparent: true,
+      opacity: 0.46,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      roughness: 0.7,
+      metalness: 0
+    })
+  );
+  tunnel.position.copy(direction.clone().multiplyScalar(length * 0.5));
+  tunnel.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+  tunnel.userData.nodeId = node.id;
+
+  const opening = new THREE.Mesh(
+    new THREE.CircleGeometry(radius * 0.88, 40),
+    new THREE.MeshBasicMaterial({
+      color: color.clone().multiplyScalar(0.26),
+      transparent: true,
+      opacity: 0.76,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+  );
+  opening.position.copy(direction.clone().multiplyScalar(-0.012));
+  opening.quaternion.copy(orientRing);
+  opening.userData.nodeId = node.id;
+
+  group.add(tunnel, outerRing, opening, innerRing);
+  return { group, radius, length, direction: direction.clone(), mouth };
+}
+
+function portalDirection(position) {
+  const direction = position.clone().normalize();
+  const maximumY = 0.68;
+  if (direction.y <= maximumY) return direction;
+  const angle = Math.atan2(direction.z, direction.x);
+  const horizontal = Math.sqrt(1 - maximumY * maximumY);
+  return new THREE.Vector3(
+    Math.cos(angle) * horizontal,
+    maximumY,
+    Math.sin(angle) * horizontal
+  );
+}
+
 function radialLayout(children, innerRadius, outerRadius) {
   const count = children.length;
   if (!count) return [];
@@ -696,7 +772,10 @@ function neighborLayout(parentNode, neighbors) {
   const group = semanticGroupData(parentNode);
   const origin = group && group.children ? group.children[currentNode.id] : null;
   if (!origin || !neighbors.every((neighbor) => group.children[neighbor.id])) {
-    return sphericalLayout(neighbors, currentWorldRadius + 1.8);
+    return sphericalLayout(neighbors, currentWorldRadius + 1.8).map((item) => ({
+      ...item,
+      normalizedDistance: 0.5
+    }));
   }
 
   const innerRadius = currentWorldRadius + 0.8;
@@ -725,7 +804,8 @@ function neighborLayout(parentNode, neighbors) {
       child: neighbor,
       x: direction[0] * radius,
       y: direction[1] * radius,
-      z: direction[2] * radius
+      z: direction[2] * radius,
+      normalizedDistance
     };
   });
 }
@@ -825,7 +905,7 @@ function updateLabels() {
     .filter((candidate) => candidate.entry.relation === "child")
     .sort((first, second) => first.score - second.score)
     .forEach(show);
-  showRelation("neighbor", compact ? 2 : 4);
+  showRelation("neighbor", Number.POSITIVE_INFINITY);
 }
 
 function desiredCameraPosition() {
@@ -972,21 +1052,24 @@ function renderCurrent(options = {}) {
   const neighborPositions = neighborLayout(parentNode, neighbors);
   neighborPositions.forEach((item, index) => {
     const neighbor = item.child;
-    const descendants = countDescendants(neighbor);
-    const radius = 0.46 + Math.min(0.2, Math.log2(descendants + 1) * 0.05);
     const color = semanticColor(parentNode, neighbor, index);
-    const throughWallColor = color.clone().lerp(neutralColor, 0.2);
-    const entry = makeExteriorSigil(neighbor, radius, throughWallColor, {
-      renderOrder: 0
+    const direction = portalDirection(new THREE.Vector3(item.x, item.y, item.z));
+    const semanticDistance = item.normalizedDistance === undefined
+      ? 0.5
+      : item.normalizedDistance;
+    const portalRadius = 0.46 - semanticDistance * 0.12;
+    const tunnelLength = 0.44 + semanticDistance * 0.42;
+    const entry = makeNeighborPortal(neighbor, direction, color, {
+      radius: portalRadius,
+      length: tunnelLength
     });
     entry.relation = "neighbor";
-    entry.group.position.set(item.x, item.y, item.z);
     worldGroup.add(entry.group);
     positions.set(neighbor.id, entry.group.position.clone());
     fishbowls.set(neighbor.id, entry);
     makeNodeLabel(
       neighbor,
-      entry.group.position.clone().add(new THREE.Vector3(0, radius * 0.48, 0)),
+      entry.group.position.clone().add(new THREE.Vector3(0, portalRadius * 0.72, 0)),
       "neighbor"
     );
   });
@@ -1143,17 +1226,17 @@ function moveToNeighbor(node) {
     return;
   }
 
-  const center = entry.group.position.clone();
-  const direction = center.clone().normalize();
-  const leaveCurrent = direction.clone().multiplyScalar(currentWorldRadius + 0.28);
-  const approach = center.clone().add(direction.clone().multiplyScalar(-entry.radius * 1.28));
-  const inside = center.clone().add(direction.clone().multiplyScalar(-entry.radius * 0.05));
-  attentionTarget = inside.clone();
+  const mouth = entry.group.position.clone();
+  const direction = entry.direction.clone();
+  const approach = mouth.clone().add(direction.clone().multiplyScalar(-entry.radius * 1.2));
+  const tunnelCenter = mouth.clone().add(direction.clone().multiplyScalar(entry.length * 0.48));
+  const through = mouth.clone().add(direction.clone().multiplyScalar(entry.length + 0.18));
+  attentionTarget = approach.clone();
 
   startCameraTransition(
-    [camera.position.clone(), leaveCurrent, approach, inside],
+    [camera.position.clone(), approach, tunnelCenter, through],
     new THREE.Vector3(0, targetY, 0),
-    center,
+    through,
     1080,
     finish
   );
@@ -1266,8 +1349,8 @@ async function initialize() {
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(64, 1, 0.08, 100);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x64748b, 1.55));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2.15);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x64748b, 1.1));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
     keyLight.position.set(-4, 7, 5);
     scene.add(keyLight);
     worldGroup = new THREE.Group();
