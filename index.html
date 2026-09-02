@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Mind Sigil</title>
+<style>
+  :root {
+    --background: #f5f7fb;
+    --foreground: #162033;
+    --card: rgba(255, 255, 255, 0.82);
+    --muted-foreground: #607089;
+    --border: rgba(22, 32, 51, 0.16);
+    --yellow: #f4b740;
+    --viz-series-1: #3366ff;
+    --viz-series-2: #8b5cf6;
+    --viz-series-3: #00a6a6;
+    --viz-series-4: #e85d75;
+    --viz-series-5: #d98d20;
+    --viz-series-6: #5c7c3b;
+    --font-size-base: 16px;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    color-scheme: light dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { min-height: 100%; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 50% 5%, rgba(51, 102, 255, 0.12), transparent 34rem),
+      var(--background);
+    color: var(--foreground);
+  }
+
+  h2, h3 { letter-spacing: -0.025em; }
+  h2 { margin: 0; font-size: clamp(1.45rem, 4vw, 2.15rem); }
+  p { line-height: 1.45; }
+
+  #mind-sigil-3d {
+    width: min(100%, 1180px);
+    margin: 0 auto;
+    padding: max(1rem, env(safe-area-inset-top)) max(0.85rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(0.85rem, env(safe-area-inset-left));
+  }
+
+  .viz-controls, .viz-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+  }
+
+  .viz-row { justify-content: space-between; }
+
+  .viz-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0.28rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.78rem;
+    line-height: 1.1;
+  }
+
+  .btn, .form-select {
+    min-height: 2.5rem;
+    border: 1px solid var(--border);
+    border-radius: 0.72rem;
+    background: var(--foreground);
+    color: var(--background);
+    padding: 0.55rem 0.78rem;
+    font: inherit;
+  }
+
+  .btn-ghost, .form-select {
+    background: var(--card);
+    color: var(--foreground);
+  }
+
+  .btn:disabled { opacity: 0.4; }
+
+  .form-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    color: var(--muted-foreground);
+    font-size: 0.88rem;
+  }
+
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    padding: 0.85rem;
+    backdrop-filter: blur(18px);
+  }
+
+  .text-small { font-size: 0.78rem; }
+
+  #mind-sigil-3d .ms3-scene {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.28);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #090d16;
+      --foreground: #edf2ff;
+      --card: rgba(18, 25, 40, 0.82);
+      --muted-foreground: #9aa8c0;
+      --border: rgba(237, 242, 255, 0.16);
+      --yellow: #ffd166;
+      --viz-series-1: #6d8cff;
+      --viz-series-2: #ad84ff;
+      --viz-series-3: #42d4cf;
+      --viz-series-4: #ff8296;
+      --viz-series-5: #f6b957;
+      --viz-series-6: #9bc66f;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 5%, rgba(109, 140, 255, 0.14), transparent 34rem),
+        var(--background);
+    }
+
+    #mind-sigil-3d .ms3-scene { background: rgba(255, 255, 255, 0.025); }
+  }
+
+  @media (max-width: 520px) {
+    .form-label { width: 100%; justify-content: space-between; }
+    .form-select { flex: 1; }
+    .btn { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<style>
+  #mind-sigil-3d {
+    color: var(--foreground);
+    font-size: var(--font-size-base);
+  }
+
+  #mind-sigil-3d .ms3-header {
+    margin-bottom: 0.75rem;
+  }
+
+  #mind-sigil-3d .ms3-header p {
+    margin-bottom: 0.45rem;
+  }
+
+  #mind-sigil-3d .ms3-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin: 0.55rem 0;
+  }
+
+  #mind-sigil-3d .ms3-controls {
+    margin-bottom: 0.4rem;
+  }
+
+  #mind-sigil-3d .ms3-scene {
+    position: relative;
+    width: 100%;
+    height: 520px;
+    overflow: hidden;
+  }
+
+  #mind-sigil-3d canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+
+  #mind-sigil-3d .ms3-label-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  #mind-sigil-3d .ms3-label {
+    position: absolute;
+    max-width: 9rem;
+    text-align: center;
+    color: var(--foreground);
+    transform: translate(-50%, -50%);
+  }
+
+  #mind-sigil-3d .ms3-help {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    color: var(--muted-foreground);
+    pointer-events: none;
+  }
+
+  #mind-sigil-3d .ms3-detail {
+    margin-top: 0.55rem;
+  }
+
+  #mind-sigil-3d .ms3-detail h3,
+  #mind-sigil-3d .ms3-detail p {
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+  }
+
+  #mind-sigil-3d .ms3-detail-grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 0.3rem 0.7rem;
+    margin: 0.45rem 0 0;
+  }
+
+  #mind-sigil-3d .ms3-detail-grid dt {
+    color: var(--muted-foreground);
+  }
+
+  #mind-sigil-3d .ms3-detail-grid dd {
+    margin: 0;
+  }
+
+  @media (max-width: 520px) {
+    #mind-sigil-3d .ms3-scene {
+      height: 430px;
+    }
+
+    #mind-sigil-3d .ms3-label {
+      max-width: 6.5rem;
+    }
+
+    #mind-sigil-3d .ms3-detail-grid {
+      grid-template-columns: 1fr;
+      gap: 0.12rem;
+    }
+
+    #mind-sigil-3d .ms3-detail-grid dd {
+      margin-bottom: 0.35rem;
+    }
+  }
+</style>
+
+<section id="mind-sigil-3d" aria-labelledby="ms3-title">
+  <header class="ms3-header">
+    <h2 id="ms3-title">Mind as a recursive sigil space</h2>
+    <p>Each open bowl is a sigil. Vertical depth is containment; horizontal proximity is sibling neighborhood; bowl radius reflects local branching. The wave is a meta-sigil spanning siblings rather than containing them.</p>
+    <div class="ms3-legend" aria-label="Visual encoding">
+      <span class="viz-badge">open bowl · bounded inhabitable region</span>
+      <span class="viz-badge">bright sphere · current attention</span>
+      <span class="viz-badge">small inner bowls · recursive children</span>
+      <span class="viz-badge">standing membrane · believed-into constraint</span>
+    </div>
+  </header>
+
+  <div class="viz-controls ms3-controls" aria-label="3D sigil controls">
+    <button id="ms3-up" class="btn" type="button">Up</button>
+    <button id="ms3-enter" class="btn" type="button">Enter selected</button>
+    <button id="ms3-writing" class="btn btn-ghost" type="button">Trace writing attention</button>
+    <label class="form-label" for="ms3-meta">Meta-sigil
+      <select id="ms3-meta" class="form-select">
+        <option value="none">None</option>
+        <option value="language">Language</option>
+        <option value="religion">Religion</option>
+        <option value="polite" selected>Polite society</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="ms3-scene" class="ms3-scene">
+    <canvas id="ms3-canvas" aria-label="Interactive three-dimensional recursive sigil structure"></canvas>
+    <div id="ms3-labels" class="ms3-label-layer" aria-hidden="true"></div>
+    <span class="ms3-help text-small">Drag to orbit · wheel to scale · select a bowl, then enter it</span>
+  </div>
+
+  <div id="ms3-detail" class="card ms3-detail" aria-live="polite"></div>
+</section>
+
+<script type="module">
+const rootElement = document.getElementById("mind-sigil-3d");
+const sceneElement = document.getElementById("ms3-scene");
+const canvas = document.getElementById("ms3-canvas");
+const labelLayer = document.getElementById("ms3-labels");
+const detailElement = document.getElementById("ms3-detail");
+const upButton = document.getElementById("ms3-up");
+const enterButton = document.getElementById("ms3-enter");
+const writingButton = document.getElementById("ms3-writing");
+const metaSelect = document.getElementById("ms3-meta");
+
+const taxonomy = {"id":"mind","label":"Mind","children":[{"id":"structural-vocabulary","label":"Basic structural vocabulary","children":[{"id":"articulation-mind","label":"Articulation","children":[]},{"id":"object-mind","label":"Object","children":[]},{"id":"entity-mind","label":"Entity","children":[]},{"id":"concept-structural","label":"Concept","children":[]}]},{"id":"levels","label":"Levels of description","children":[{"id":"phenomenological-level","label":"Phenomenological level","children":[]},{"id":"conditions-possibility","label":"Conditions of possibility","children":[{"id":"transcendental","label":"Transcendental","children":[]},{"id":"transcendent","label":"Transcendent","children":[]},{"id":"immanent","label":"Immanent","children":[]}]},{"id":"personal-level","label":"Personal level","children":[]},{"id":"subpersonal-level","label":"Subpersonal level","children":[]},{"id":"functional-level","label":"Functional level","children":[]},{"id":"computational-level","label":"Computational level","children":[]},{"id":"neural-level","label":"Neural / biological level","children":[]},{"id":"behavioral-level","label":"Behavioral level","children":[]},{"id":"normative-level","label":"Normative / social level","children":[]},{"id":"operationalization","label":"Operationalization","children":[]},{"id":"correlate","label":"Correlate","children":[]},{"id":"mechanism","label":"Mechanism","children":[]},{"id":"realization","label":"Realization / implementation","children":[]}]},{"id":"experience-domain","label":"Experience & consciousness","children":[{"id":"consciousness","label":"Consciousness","children":[{"id":"phenomenal-consciousness","label":"Phenomenal consciousness","children":[{"id":"phenomenal-character","label":"Phenomenal character","children":[]},{"id":"qualia","label":"Qualia","children":[]},{"id":"subjectivity","label":"Subjectivity","children":[]}]},{"id":"access-consciousness","label":"Access consciousness","children":[]},{"id":"creature-consciousness","label":"Creature consciousness","children":[]},{"id":"state-consciousness","label":"State consciousness","children":[]},{"id":"self-consciousness","label":"Self-consciousness","children":[{"id":"pre-reflective-self-awareness","label":"Pre-reflective self-awareness","children":[]},{"id":"reflective-self-consciousness","label":"Reflective self-consciousness","children":[]},{"id":"metaconsciousness","label":"Metaconsciousness / meta-awareness","children":[]}]}]},{"id":"sentience","label":"Sentience","children":[]},{"id":"awareness","label":"Awareness","children":[]},{"id":"arousal-wakefulness","label":"Arousal / wakefulness","children":[]},{"id":"level-consciousness","label":"Level of consciousness","children":[]},{"id":"content-consciousness","label":"Content of consciousness","children":[]},{"id":"nonconscious-processing","label":"Nonconscious / unconscious processing","children":[]}]},{"id":"selection-domain","label":"Selection & attention","children":[{"id":"attention","label":"Attention","children":[{"id":"selective-attention","label":"Selective attention","children":[]},{"id":"sustained-attention","label":"Sustained attention / vigilance","children":[]},{"id":"divided-attention","label":"Divided attention","children":[]},{"id":"endogenous-attention","label":"Endogenous / top-down attention","children":[]},{"id":"exogenous-attention","label":"Exogenous / bottom-up attention","children":[]},{"id":"executive-attention","label":"Executive attention","children":[]},{"id":"overt-covert-attention","label":"Overt / covert attention","children":[]},{"id":"machine-attention","label":"Machine-learning attention","children":[]}]},{"id":"salience-mind","label":"Salience","children":[]},{"id":"relevance-mind","label":"Relevance","children":[]},{"id":"orienting","label":"Orienting","children":[]},{"id":"cognitive-control","label":"Cognitive control","children":[]}]},{"id":"content-domain","label":"Aboutness & mental content","children":[{"id":"intentionality-mind","label":"Intentionality","children":[{"id":"intentional-object-mind","label":"Intentional object","children":[]},{"id":"noesis-mind","label":"Noesis","children":[]},{"id":"noema-mind","label":"Noema","children":[]}]},{"id":"mental-content","label":"Mental content","children":[]},{"id":"mental-representation","label":"Mental representation","children":[]},{"id":"perception-mind","label":"Perception","children":[]},{"id":"sensation-mind","label":"Sensation","children":[]},{"id":"imagination","label":"Imagination","children":[]},{"id":"thought","label":"Thought","children":[]},{"id":"concept-mind","label":"Concept","children":[]},{"id":"propositional-attitude","label":"Propositional attitude","children":[{"id":"belief-mind","label":"Belief","children":[]},{"id":"desire-mind","label":"Desire","children":[]}]}]},{"id":"cognition-domain","label":"Cognition & competence","children":[{"id":"cognition","label":"Cognition","children":[]},{"id":"intelligence","label":"Intelligence","children":[]},{"id":"understanding","label":"Understanding","children":[]},{"id":"reasoning","label":"Reasoning","children":[]},{"id":"inference-mind","label":"Inference","children":[]},{"id":"problem-solving","label":"Problem solving","children":[]},{"id":"planning","label":"Planning","children":[]},{"id":"decision-making","label":"Decision-making","children":[]},{"id":"executive-function","label":"Executive function","children":[]},{"id":"metacognition","label":"Metacognition","children":[]},{"id":"creativity","label":"Creativity","children":[]},{"id":"cognitive-flexibility","label":"Cognitive flexibility","children":[]}]},{"id":"memory-domain","label":"Memory & learning","children":[{"id":"memory","label":"Memory","children":[{"id":"working-memory","label":"Working memory","children":[]},{"id":"episodic-memory","label":"Episodic memory","children":[]},{"id":"semantic-memory","label":"Semantic memory","children":[]},{"id":"procedural-memory","label":"Procedural memory","children":[]},{"id":"autobiographical-memory","label":"Autobiographical memory","children":[]},{"id":"explicit-implicit-memory","label":"Explicit / implicit memory","children":[]}]},{"id":"learning","label":"Learning","children":[{"id":"conditioning","label":"Conditioning","children":[]},{"id":"reinforcement-learning","label":"Reinforcement learning","children":[]},{"id":"statistical-learning","label":"Statistical learning","children":[]}]},{"id":"recall","label":"Recall","children":[]},{"id":"recognition-memory","label":"Recognition memory","children":[]},{"id":"forgetting","label":"Forgetting","children":[]}]},{"id":"affect-domain","label":"Affect & valuation","children":[{"id":"affect","label":"Affect","children":[{"id":"valence","label":"Valence","children":[]},{"id":"affective-arousal","label":"Affective arousal","children":[]}]},{"id":"feeling","label":"Feeling","children":[]},{"id":"emotion","label":"Emotion","children":[]},{"id":"mood","label":"Mood","children":[]},{"id":"appraisal","label":"Appraisal","children":[]},{"id":"interoception","label":"Interoception","children":[]},{"id":"pain","label":"Pain","children":[{"id":"nociception","label":"Nociception","children":[]}]},{"id":"pleasure","label":"Pleasure","children":[]},{"id":"suffering","label":"Suffering","children":[]},{"id":"reward","label":"Reward","children":[]},{"id":"motivation","label":"Motivation","children":[]},{"id":"drive","label":"Drive","children":[]}]},{"id":"agency-domain","label":"Agency & action","children":[{"id":"agent","label":"Agent","children":[]},{"id":"agency","label":"Agency","children":[]},{"id":"action","label":"Action","children":[]},{"id":"goal","label":"Goal","children":[]},{"id":"intention-action","label":"Intention","children":[]},{"id":"volition","label":"Volition","children":[]},{"id":"choice","label":"Choice","children":[]},{"id":"control","label":"Control","children":[]},{"id":"autonomy","label":"Autonomy","children":[]},{"id":"affordance-mind","label":"Affordance","children":[]},{"id":"skill","label":"Skill","children":[]},{"id":"habit","label":"Habit","children":[]},{"id":"sense-agency","label":"Sense of agency","children":[]},{"id":"free-will","label":"Free will","children":[]}]},{"id":"self-domain","label":"Self & continuity","children":[{"id":"subject-mind","label":"Subject","children":[]},{"id":"self","label":"Self","children":[{"id":"minimal-self","label":"Minimal self","children":[]},{"id":"embodied-self","label":"Embodied / bodily self","children":[]},{"id":"perspectival-self","label":"Perspectival self","children":[]},{"id":"ownership","label":"Sense of ownership","children":[]},{"id":"self-model","label":"Self-model","children":[]},{"id":"narrative-self","label":"Narrative self","children":[]},{"id":"autobiographical-self","label":"Autobiographical self","children":[]}]},{"id":"ego","label":"Ego","children":[]},{"id":"personal-identity","label":"Personal identity","children":[]},{"id":"personhood","label":"Personhood","children":[]},{"id":"personality","label":"Personality","children":[]}]},{"id":"social-domain","label":"Social mind","children":[{"id":"intersubjectivity-mind","label":"Intersubjectivity","children":[]},{"id":"social-cognition","label":"Social cognition","children":[]},{"id":"theory-of-mind","label":"Theory of mind","children":[]},{"id":"mentalizing","label":"Mentalizing","children":[]},{"id":"empathy","label":"Empathy","children":[{"id":"cognitive-empathy","label":"Cognitive empathy","children":[]},{"id":"affective-empathy","label":"Affective empathy","children":[]},{"id":"compassion","label":"Compassion","children":[]}]},{"id":"joint-attention","label":"Joint attention","children":[]},{"id":"collective-intentionality","label":"Collective intentionality","children":[]},{"id":"communication","label":"Communication","children":[]},{"id":"language-mind","label":"Language","children":[]},{"id":"normativity","label":"Normativity","children":[]}]}]};
+
+const shortLabels = {
+  "structural-vocabulary": "Structure",
+  "levels": "Description levels",
+  "experience-domain": "Experience",
+  "selection-domain": "Attention",
+  "content-domain": "Mental content",
+  "cognition-domain": "Cognition",
+  "memory-domain": "Memory",
+  "affect-domain": "Affect",
+  "agency-domain": "Agency",
+  "self-domain": "Self",
+  "social-domain": "Social mind"
+};
+
+const metaDefinitions = {
+  none: {
+    label: "No active meta-sigil",
+    members: [],
+    constraints: "—",
+    affordance: "Sibling bowls remain a neighborhood without one shared standing constraint."
+  },
+  language: {
+    label: "Language",
+    members: ["selection-domain", "content-domain", "cognition-domain", "memory-domain", "social-domain"],
+    constraints: "shared signs · compositional conventions · repair and turn-taking norms",
+    affordance: "Compress and coordinate attention across subjects and time."
+  },
+  religion: {
+    label: "Religion (as a social meta-sigil)",
+    members: ["experience-domain", "content-domain", "cognition-domain", "memory-domain", "affect-domain", "agency-domain", "self-domain", "social-domain"],
+    constraints: "shared sacred distinctions · narratives · practices · authorities and norms",
+    affordance: "Coordinate meaning, identity, time, obligation, and collective action."
+  },
+  polite: {
+    label: "Polite society",
+    members: ["cognition-domain", "affect-domain", "agency-domain", "self-domain", "social-domain"],
+    constraints: "inhibit harm · respect boundaries · reciprocal recognition · predictable repair",
+    affordance: "Low-friction coexistence among many independently moving attentions."
+  }
+};
+
+const writingPath = [
+  "experience-domain",
+  "affect-domain",
+  "self-domain",
+  "memory-domain",
+  "content-domain",
+  "selection-domain",
+  "social-domain",
+  "experience-domain"
+];
+
+const nodeIndex = new Map();
+const parentIndex = new Map();
+const pathIndex = new Map();
+
+function indexTree(node, parent = null, path = []) {
+  nodeIndex.set(node.id, node);
+  parentIndex.set(node.id, parent);
+  pathIndex.set(node.id, [...path, node.label]);
+  node.children.forEach((child) => indexTree(child, node, [...path, node.label]));
+}
+indexTree(taxonomy);
+
+function countDescendants(node) {
+  return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
+}
+
+function resolveColor(variableName) {
+  const probe = document.createElement("span");
+  probe.style.color = `var(${variableName})`;
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  rootElement.append(probe);
+  const value = getComputedStyle(probe).color;
+  probe.remove();
+  return value;
+}
+
+let THREE;
+let renderer;
+let scene;
+let camera;
+let worldGroup;
+let waveMesh = null;
+let waveBase = null;
+let participantPoints = [];
+let attentionMesh;
+let attentionTarget;
+let trailLine = null;
+let currentNode = taxonomy;
+let selectedNode = taxonomy;
+let positions = new Map();
+let bowls = new Map();
+let labelEntries = [];
+let palette = [];
+let neutralColor;
+let borderColor;
+let attentionColor;
+let yaw = 0.65;
+let pitch = 0.72;
+let distance = 14;
+let targetY = -1.25;
+let dragging = false;
+let moved = false;
+let pointerStart = { x: 0, y: 0 };
+let lastPointer = { x: 0, y: 0 };
+let writingTimers = [];
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+function updatePalette() {
+  palette = [1, 2, 3, 4, 5, 6].map((index) => new THREE.Color(resolveColor(`--viz-series-${index}`)));
+  neutralColor = new THREE.Color(resolveColor("--muted-foreground"));
+  borderColor = new THREE.Color(resolveColor("--border"));
+  attentionColor = new THREE.Color(resolveColor("--yellow"));
+}
+
+function disposeObject(object) {
+  object.traverse((child) => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach((material) => material.dispose());
+    }
+  });
+}
+
+function clearWorld() {
+  if (worldGroup) {
+    scene.remove(worldGroup);
+    disposeObject(worldGroup);
+  }
+  worldGroup = new THREE.Group();
+  scene.add(worldGroup);
+  waveMesh = null;
+  waveBase = null;
+  participantPoints = [];
+  trailLine = null;
+  positions = new Map();
+  bowls = new Map();
+  labelEntries = [];
+  labelLayer.replaceChildren();
+}
+
+function bowlGeometry(radius, segments = 28) {
+  return new THREE.SphereGeometry(radius, segments, Math.max(8, Math.floor(segments / 2)), 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+}
+
+function makeBowl(node, radius, color, interactive = true, opacity = 0.18) {
+  const group = new THREE.Group();
+  const shell = new THREE.Mesh(
+    bowlGeometry(radius),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      side: THREE.DoubleSide
+    })
+  );
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, Math.max(0.018, radius * 0.025), 8, 64),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: Math.min(0.9, opacity * 3.5) })
+  );
+  rim.rotation.x = Math.PI / 2;
+  if (interactive) {
+    shell.userData.nodeId = node.id;
+    rim.userData.nodeId = node.id;
+  }
+  group.add(shell, rim);
+  return group;
+}
+
+function childLayout(children) {
+  const layout = [];
+  const count = children.length;
+  if (count === 0) return layout;
+  if (count <= 6) {
+    const radius = count === 1 ? 0 : 3.15;
+    children.forEach((child, index) => {
+      const angle = count === 1 ? 0 : -Math.PI / 2 + index * Math.PI * 2 / count;
+      layout.push({ child, x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, ring: 0 });
+    });
+    return layout;
+  }
+  const innerCount = Math.ceil(count * 0.43);
+  const outerCount = count - innerCount;
+  children.slice(0, innerCount).forEach((child, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI * 2 / innerCount;
+    layout.push({ child, x: Math.cos(angle) * 2.25, z: Math.sin(angle) * 2.25, ring: 0 });
+  });
+  children.slice(innerCount).forEach((child, index) => {
+    const angle = -Math.PI / 2 + Math.PI / Math.max(outerCount, 1) + index * Math.PI * 2 / outerCount;
+    layout.push({ child, x: Math.cos(angle) * 4.25, z: Math.sin(angle) * 4.25, ring: 1 });
+  });
+  return layout;
+}
+
+function addRecursiveHints(parentGroup, node, radius, color) {
+  const hints = node.children.slice(0, 4);
+  if (!hints.length) return;
+  const hintRadius = radius * 0.15;
+  hints.forEach((child, index) => {
+    const angle = -Math.PI / 2 + index * Math.PI * 2 / hints.length;
+    const mini = makeBowl(child, hintRadius, color, false, 0.24);
+    mini.position.set(Math.cos(angle) * radius * 0.38, -radius * 0.32, Math.sin(angle) * radius * 0.38);
+    parentGroup.add(mini);
+  });
+}
+
+function makeLabel(node, position) {
+  const element = document.createElement("span");
+  element.className = "ms3-label text-small";
+  element.textContent = shortLabels[node.id] || node.label;
+  labelLayer.append(element);
+  labelEntries.push({ node, position, element });
+}
+
+function updateCamera() {
+  const horizontal = Math.sin(pitch) * distance;
+  camera.position.set(
+    Math.sin(yaw) * horizontal,
+    Math.cos(pitch) * distance + targetY,
+    Math.cos(yaw) * horizontal
+  );
+  camera.lookAt(0, targetY, 0);
+}
+
+function resetCamera() {
+  yaw = 0.65;
+  pitch = 0.72;
+  distance = currentNode.children.length > 9 ? 15.5 : 13.5;
+  updateCamera();
+}
+
+function updateLabels() {
+  const width = sceneElement.clientWidth;
+  const height = sceneElement.clientHeight;
+  labelEntries.forEach((entry) => {
+    const projected = entry.position.clone().project(camera);
+    const visible = projected.z > -1 && projected.z < 1;
+    entry.element.hidden = !visible;
+    if (!visible) return;
+    const x = (projected.x * 0.5 + 0.5) * width;
+    const y = (-projected.y * 0.5 + 0.5) * height;
+    entry.element.style.left = `${x}px`;
+    entry.element.style.top = `${y}px`;
+    entry.element.style.opacity = entry.node.id === selectedNode.id ? "1" : "0.78";
+  });
+}
+
+function updateSelectionMaterials() {
+  bowls.forEach((entry, id) => {
+    const selected = id === selectedNode.id;
+    entry.group.scale.setScalar(selected ? 1.1 : 1);
+    entry.shell.material.opacity = selected ? 0.42 : 0.18;
+    entry.rim.material.opacity = selected ? 1 : 0.62;
+  });
+}
+
+function selectedPosition() {
+  if (selectedNode.id === currentNode.id) return new THREE.Vector3(0, 0.32, 0);
+  const position = positions.get(selectedNode.id);
+  return position ? position.clone().add(new THREE.Vector3(0, 0.32, 0)) : new THREE.Vector3(0, 0.32, 0);
+}
+
+function updateDetail(extra = "") {
+  const path = pathIndex.get(selectedNode.id).join(" › ");
+  const meta = metaDefinitions[metaSelect.value];
+  const parent = parentIndex.get(selectedNode.id);
+  const relation = selectedNode.id === currentNode.id
+    ? "current world"
+    : `child of ${parent ? parent.label : currentNode.label}; neighbor of ${Math.max(0, currentNode.children.length - 1)} sibling sigils`;
+  const writingLine = extra || "The active point occupies one sigil; selecting another moves attention without changing the containment hierarchy.";
+  detailElement.replaceChildren();
+  const header = document.createElement("div");
+  header.className = "viz-row";
+  const heading = document.createElement("h3");
+  heading.textContent = selectedNode.label;
+  const badge = document.createElement("span");
+  badge.className = "viz-badge";
+  badge.textContent = selectedNode.children.length ? `${selectedNode.children.length} children` : "leaf sigil";
+  header.append(heading, badge);
+  const text = document.createElement("p");
+  text.textContent = writingLine;
+  const grid = document.createElement("dl");
+  grid.className = "ms3-detail-grid";
+  [
+    ["Scope", path],
+    ["Relation", relation],
+    ["Meta-sigil", `${meta.label}: ${meta.constraints}`],
+    ["Affords", meta.affordance]
+  ].forEach(([name, value]) => {
+    const dt = document.createElement("dt");
+    dt.textContent = name;
+    const dd = document.createElement("dd");
+    dd.textContent = value;
+    grid.append(dt, dd);
+  });
+  detailElement.append(header, text, grid);
+  upButton.disabled = currentNode.id === taxonomy.id;
+  enterButton.disabled = selectedNode.children.length === 0;
+}
+
+function convexHull(points) {
+  if (points.length <= 2) return points.slice();
+  const sorted = points.slice().sort((a, b) => a.x - b.x || a.z - b.z);
+  const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lower = [];
+  sorted.forEach((point) => {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop();
+    lower.push(point);
+  });
+  const upper = [];
+  [...sorted].reverse().forEach((point) => {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop();
+    upper.push(point);
+  });
+  lower.pop();
+  upper.pop();
+  return lower.concat(upper);
+}
+
+function addMetaSigil() {
+  const definition = metaDefinitions[metaSelect.value];
+  if (currentNode.id !== taxonomy.id || definition.members.length < 3) return;
+  const memberPositions = definition.members
+    .map((id) => positions.get(id))
+    .filter(Boolean)
+    .map((position) => ({ x: position.x, z: position.z }));
+  const hull = convexHull(memberPositions);
+  if (hull.length < 3) return;
+
+  const shape = new THREE.Shape();
+  shape.moveTo(hull[0].x, hull[0].z);
+  hull.slice(1).forEach((point) => shape.lineTo(point.x, point.z));
+  shape.closePath();
+  const geometry = new THREE.ShapeGeometry(shape);
+  waveBase = Float32Array.from(geometry.attributes.position.array);
+  const material = new THREE.MeshBasicMaterial({
+    color: palette[4],
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
+  waveMesh = new THREE.Mesh(geometry, material);
+  waveMesh.rotation.x = Math.PI / 2;
+  waveMesh.position.y = -0.28;
+  worldGroup.add(waveMesh);
+
+  const outlinePoints = hull.map((point) => new THREE.Vector3(point.x, -0.27, point.z));
+  outlinePoints.push(outlinePoints[0].clone());
+  const outline = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(outlinePoints),
+    new THREE.LineBasicMaterial({ color: palette[4], transparent: true, opacity: 0.78 })
+  );
+  worldGroup.add(outline);
+
+  definition.members.forEach((id) => {
+    const position = positions.get(id);
+    if (!position) return;
+    const point = new THREE.Mesh(
+      new THREE.SphereGeometry(0.1, 16, 10),
+      new THREE.MeshBasicMaterial({ color: palette[4] })
+    );
+    point.position.set(position.x, -0.03, position.z);
+    point.userData.baseY = point.position.y;
+    point.userData.phase = position.x * 0.7 + position.z * 0.4;
+    participantPoints.push(point);
+    worldGroup.add(point);
+  });
+}
+
+function renderCurrent() {
+  clearWorld();
+  updatePalette();
+  selectedNode = currentNode;
+
+  const worldRadius = 5.6;
+  const worldBowl = makeBowl(currentNode, worldRadius, neutralColor, false, 0.065);
+  worldBowl.position.y = 0;
+  worldGroup.add(worldBowl);
+
+  const layout = childLayout(currentNode.children);
+  layout.forEach(({ child, x, z }, index) => {
+    const descendants = countDescendants(child);
+    const radius = 0.58 + Math.min(0.34, Math.log2(descendants + 1) * 0.085);
+    const color = palette[index % palette.length];
+    const group = makeBowl(child, radius, color, true, 0.18);
+    group.position.set(x, -1.18, z);
+    addRecursiveHints(group, child, radius, color);
+    worldGroup.add(group);
+    positions.set(child.id, group.position.clone());
+    bowls.set(child.id, { group, shell: group.children[0], rim: group.children[1] });
+    makeLabel(child, group.position.clone().add(new THREE.Vector3(0, radius * 0.42, 0)));
+  });
+
+  attentionMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.15, 22, 14),
+    new THREE.MeshBasicMaterial({ color: attentionColor })
+  );
+  attentionMesh.position.set(0, 0.32, 0);
+  attentionTarget = attentionMesh.position.clone();
+  worldGroup.add(attentionMesh);
+
+  addMetaSigil();
+  resetCamera();
+  updateSelectionMaterials();
+  updateDetail();
+}
+
+function selectNode(node, message = "") {
+  selectedNode = node;
+  attentionTarget = selectedPosition();
+  updateSelectionMaterials();
+  updateDetail(message);
+}
+
+function enterSelected() {
+  if (!selectedNode.children.length) return;
+  currentNode = selectedNode;
+  renderCurrent();
+}
+
+function goUp() {
+  const parent = parentIndex.get(currentNode.id);
+  if (!parent) return;
+  const previous = currentNode;
+  currentNode = parent;
+  renderCurrent();
+  selectNode(previous);
+}
+
+function clearWritingTimers() {
+  writingTimers.forEach((timer) => clearTimeout(timer));
+  writingTimers = [];
+  writingButton.disabled = false;
+}
+
+function drawWritingTrail(ids) {
+  if (trailLine) {
+    worldGroup.remove(trailLine);
+    disposeObject(trailLine);
+  }
+  const points = ids
+    .map((id) => positions.get(id))
+    .filter(Boolean)
+    .map((position, index) => position.clone().add(new THREE.Vector3(0, 0.12 + index * 0.01, 0)));
+  if (points.length < 2) return;
+  const curve = new THREE.CatmullRomCurve3(points, false, "centripetal", 0.35);
+  const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(100));
+  const material = new THREE.LineBasicMaterial({ color: attentionColor, transparent: true, opacity: 0.72 });
+  trailLine = new THREE.Line(geometry, material);
+  worldGroup.add(trailLine);
+}
+
+function traceWritingAttention() {
+  clearWritingTimers();
+  if (currentNode.id !== taxonomy.id) {
+    currentNode = taxonomy;
+    renderCurrent();
+  }
+  drawWritingTrail(writingPath);
+  const message = "The prose is not topic-continuous; it is attention-continuous. Ambient capture changes the text because the inhabited sigil changes while the attending subject remains continuous.";
+  if (reducedMotion.matches) {
+    const finalNode = nodeIndex.get(writingPath[writingPath.length - 1]);
+    selectNode(finalNode, message);
+    return;
+  }
+  writingButton.disabled = true;
+  writingPath.forEach((id, index) => {
+    const timer = setTimeout(() => {
+      selectNode(nodeIndex.get(id), message);
+      if (index === writingPath.length - 1) writingButton.disabled = false;
+    }, index * 1050);
+    writingTimers.push(timer);
+  });
+}
+
+function waveHeight(x, z, time) {
+  return Math.sin(time * 2.2 + Math.sqrt(x * x + z * z) * 1.35) * 0.12;
+}
+
+function animate(timeMs) {
+  const time = timeMs / 1000;
+  requestAnimationFrame(animate);
+  if (attentionMesh && attentionTarget) {
+    const factor = reducedMotion.matches ? 1 : 0.09;
+    attentionMesh.position.lerp(attentionTarget, factor);
+    const pulse = reducedMotion.matches ? 1 : 1 + Math.sin(time * 4.2) * 0.12;
+    attentionMesh.scale.setScalar(pulse);
+  }
+  if (waveMesh && waveBase) {
+    const positionsAttribute = waveMesh.geometry.attributes.position;
+    for (let index = 0; index < positionsAttribute.count; index += 1) {
+      const baseIndex = index * 3;
+      const x = waveBase[baseIndex];
+      const y = waveBase[baseIndex + 1];
+      positionsAttribute.setZ(index, reducedMotion.matches ? 0 : -waveHeight(x, y, time));
+    }
+    positionsAttribute.needsUpdate = true;
+  }
+  participantPoints.forEach((point) => {
+    point.position.y = point.userData.baseY + (reducedMotion.matches ? 0 : Math.sin(time * 2.2 + point.userData.phase) * 0.12);
+  });
+  updateCamera();
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+function resize() {
+  const width = Math.max(1, sceneElement.clientWidth);
+  const height = Math.max(1, sceneElement.clientHeight);
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+
+function pointerCoordinates(event) {
+  const bounds = canvas.getBoundingClientRect();
+  return {
+    x: ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+    y: -((event.clientY - bounds.top) / bounds.height) * 2 + 1
+  };
+}
+
+function selectFromPointer(event) {
+  const pointer = pointerCoordinates(event);
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(worldGroup.children, true);
+  const hit = hits.find((candidate) => candidate.object.userData.nodeId);
+  if (!hit) return;
+  const node = nodeIndex.get(hit.object.userData.nodeId);
+  if (node) selectNode(node);
+}
+
+async function initialize() {
+  try {
+    THREE = await import("https://esm.sh/three@0.167.1");
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    worldGroup = new THREE.Group();
+    scene.add(worldGroup);
+
+    canvas.addEventListener("pointerdown", (event) => {
+      dragging = true;
+      moved = false;
+      pointerStart = { x: event.clientX, y: event.clientY };
+      lastPointer = { ...pointerStart };
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const dx = event.clientX - lastPointer.x;
+      const dy = event.clientY - lastPointer.y;
+      if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) moved = true;
+      yaw -= dx * 0.008;
+      pitch = Math.max(0.25, Math.min(1.38, pitch + dy * 0.007));
+      lastPointer = { x: event.clientX, y: event.clientY };
+    });
+    canvas.addEventListener("pointerup", (event) => {
+      if (!dragging) return;
+      dragging = false;
+      canvas.releasePointerCapture(event.pointerId);
+      if (!moved) selectFromPointer(event);
+    });
+    canvas.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      distance = Math.max(8, Math.min(23, distance + event.deltaY * 0.012));
+    }, { passive: false });
+    canvas.addEventListener("dblclick", () => enterSelected());
+
+    upButton.addEventListener("click", goUp);
+    enterButton.addEventListener("click", enterSelected);
+    writingButton.addEventListener("click", traceWritingAttention);
+    metaSelect.addEventListener("change", () => renderCurrent());
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(sceneElement);
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderCurrent());
+
+    updatePalette();
+    renderCurrent();
+    resize();
+    requestAnimationFrame(animate);
+  } catch (error) {
+    sceneElement.setAttribute("role", "alert");
+    sceneElement.textContent = "The 3D renderer could not start in this surface.";
+    upButton.disabled = true;
+    enterButton.disabled = true;
+    writingButton.disabled = true;
+    metaSelect.disabled = true;
+  }
+}
+
+initialize();
+</script>
+</body>
+</html>
