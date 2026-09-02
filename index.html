@@ -142,18 +142,11 @@
   }
 
   #mind-sigil-3d .ms3-header {
-    margin-bottom: 0.75rem;
-  }
-
-  #mind-sigil-3d .ms3-header p {
     margin-bottom: 0.45rem;
   }
 
-  #mind-sigil-3d .ms3-legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin: 0.55rem 0;
+  #mind-sigil-3d .ms3-header p {
+    margin: 0.3rem 0 0;
   }
 
   #mind-sigil-3d .ms3-map-control {
@@ -250,6 +243,15 @@
   }
 
   @media (max-width: 520px) {
+    #mind-sigil-3d .ms3-header {
+      margin-bottom: 0.35rem;
+    }
+
+    #mind-sigil-3d .ms3-header p {
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+
     #mind-sigil-3d .ms3-scene {
       height: 470px;
     }
@@ -272,13 +274,7 @@
 <section id="mind-sigil-3d" aria-labelledby="ms3-title">
   <header class="ms3-header">
     <h2 id="ms3-title">Philosophical taxonomies as recursive sigils</h2>
-    <p>The geometry renders the selected taxonomy literally. The enclosing sigil is the current concept; its children are inside it, while its siblings remain visible outside its transparent boundary in their shared parent.</p>
-    <div class="ms3-legend" aria-label="Visual encoding">
-      <span class="viz-badge">enclosing sphere · current concept</span>
-      <span class="viz-badge">inner spheres · immediate sub-concepts</span>
-      <span class="viz-badge">outer spheres · sibling neighbors</span>
-      <span class="viz-badge">yellow point · attention</span>
-    </div>
+    <p>The current sigil contains its children; sibling sigils remain visible through it in their shared parent.</p>
   </header>
 
   <label class="form-label ms3-map-control" for="ms3-map">Taxonomy
