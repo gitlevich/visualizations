@@ -68,22 +68,15 @@
     line-height: 1.1;
   }
 
-  .btn, .form-select {
+  .form-select {
     min-height: 2.5rem;
     border: 1px solid var(--border);
     border-radius: 0.72rem;
-    background: var(--foreground);
-    color: var(--background);
+    background: var(--card);
+    color: var(--foreground);
     padding: 0.55rem 0.78rem;
     font: inherit;
   }
-
-  .btn-ghost, .form-select {
-    background: var(--card);
-    color: var(--foreground);
-  }
-
-  .btn:disabled { opacity: 0.4; }
 
   .form-label {
     display: inline-flex;
@@ -92,6 +85,7 @@
     color: var(--muted-foreground);
     font-size: 0.88rem;
   }
+
 
   .card {
     border: 1px solid var(--border);
@@ -136,8 +130,7 @@
 
   @media (max-width: 520px) {
     .form-label { width: 100%; justify-content: space-between; }
-    .form-select { flex: 1; }
-    .btn { flex: 1 1 auto; }
+    .form-select { flex: 1; min-width: 0; }
   }
 </style>
 </head>
@@ -163,14 +156,14 @@
     margin: 0.55rem 0;
   }
 
-  #mind-sigil-3d .ms3-controls {
-    margin-bottom: 0.4rem;
+  #mind-sigil-3d .ms3-map-control {
+    margin-bottom: 0.55rem;
   }
 
   #mind-sigil-3d .ms3-scene {
     position: relative;
     width: 100%;
-    height: 520px;
+    height: 560px;
     overflow: hidden;
   }
 
@@ -191,9 +184,24 @@
   #mind-sigil-3d .ms3-label {
     position: absolute;
     max-width: 9rem;
+    min-height: 2rem;
+    padding: 0.25rem 0.45rem;
+    border: 0;
+    border-radius: 0.55rem;
+    background: color-mix(in srgb, var(--card) 78%, transparent);
+    font: inherit;
     text-align: center;
     color: var(--foreground);
     transform: translate(-50%, -50%);
+    pointer-events: auto;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  #mind-sigil-3d .ms3-label[data-kind="exit"] {
+    color: var(--yellow);
+    border: 1px solid currentColor;
+    background: color-mix(in srgb, var(--background) 76%, transparent);
   }
 
   #mind-sigil-3d .ms3-help {
@@ -229,9 +237,21 @@
     margin: 0;
   }
 
+  #mind-sigil-3d .ms3-domain-readings {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--border);
+  }
+
+  #mind-sigil-3d .ms3-domain-readings h4 {
+    margin: 0 0 0.4rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+  }
+
   @media (max-width: 520px) {
     #mind-sigil-3d .ms3-scene {
-      height: 430px;
+      height: 470px;
     }
 
     #mind-sigil-3d .ms3-label {
@@ -251,34 +271,27 @@
 
 <section id="mind-sigil-3d" aria-labelledby="ms3-title">
   <header class="ms3-header">
-    <h2 id="ms3-title">Mind as a recursive sigil space</h2>
-    <p>Each sphere with its top cut off is a sigil. Vertical depth is containment; horizontal proximity is sibling neighborhood; sphere radius reflects subtree size. The wave is a meta-sigil spanning siblings rather than containing them.</p>
+    <h2 id="ms3-title">Philosophical taxonomies as recursive sigils</h2>
+    <p>The geometry renders the selected taxonomy literally. The enclosing sigil is the current concept; its children are inside it, while its siblings remain visible outside its transparent boundary in their shared parent.</p>
     <div class="ms3-legend" aria-label="Visual encoding">
-      <span class="viz-badge">cut-open sphere · bounded inhabitable region</span>
-      <span class="viz-badge">bright sphere · current attention</span>
-      <span class="viz-badge">small inner spheres · recursive children</span>
-      <span class="viz-badge">standing membrane · believed-into constraint</span>
+      <span class="viz-badge">enclosing sphere · current concept</span>
+      <span class="viz-badge">inner spheres · immediate sub-concepts</span>
+      <span class="viz-badge">outer spheres · sibling neighbors</span>
+      <span class="viz-badge">yellow point · attention</span>
     </div>
   </header>
 
-  <div class="viz-controls ms3-controls" aria-label="3D sigil controls">
-    <button id="ms3-up" class="btn" type="button">Up</button>
-    <button id="ms3-enter" class="btn" type="button">Enter selected</button>
-    <button id="ms3-writing" class="btn btn-ghost" type="button">Trace writing attention</button>
-    <label class="form-label" for="ms3-meta">Meta-sigil
-      <select id="ms3-meta" class="form-select">
-        <option value="none">None</option>
-        <option value="language">Language</option>
-        <option value="religion">Religion</option>
-        <option value="polite" selected>Polite society</option>
-      </select>
-    </label>
-  </div>
+  <label class="form-label ms3-map-control" for="ms3-map">Taxonomy
+    <select id="ms3-map" class="form-select">
+      <option value="subjectWorld" selected>Subject–world articulation</option>
+      <option value="mind">Mind: non-synonymous capacities</option>
+    </select>
+  </label>
 
   <div id="ms3-scene" class="ms3-scene">
     <canvas id="ms3-canvas" aria-label="Interactive three-dimensional recursive sigil structure"></canvas>
-    <div id="ms3-labels" class="ms3-label-layer" aria-hidden="true"></div>
-    <span class="ms3-help text-small">Drag to orbit · wheel to scale · select a sigil, then enter it</span>
+    <div id="ms3-labels" class="ms3-label-layer"></div>
+    <span class="ms3-help text-small">Tap an inner sigil to enter · tap the enclosing opening to return · drag to look around</span>
   </div>
 
   <div id="ms3-detail" class="card ms3-detail" aria-live="polite"></div>
@@ -290,14 +303,10 @@ const sceneElement = document.getElementById("ms3-scene");
 const canvas = document.getElementById("ms3-canvas");
 const labelLayer = document.getElementById("ms3-labels");
 const detailElement = document.getElementById("ms3-detail");
-const upButton = document.getElementById("ms3-up");
-const enterButton = document.getElementById("ms3-enter");
-const writingButton = document.getElementById("ms3-writing");
-const metaSelect = document.getElementById("ms3-meta");
-
-const taxonomy = {"id":"mind","label":"Mind","children":[{"id":"structural-vocabulary","label":"Basic structural vocabulary","children":[{"id":"articulation-mind","label":"Articulation","children":[]},{"id":"object-mind","label":"Object","children":[]},{"id":"entity-mind","label":"Entity","children":[]},{"id":"concept-structural","label":"Concept","children":[]}]},{"id":"levels","label":"Levels of description","children":[{"id":"phenomenological-level","label":"Phenomenological level","children":[]},{"id":"conditions-possibility","label":"Conditions of possibility","children":[{"id":"transcendental","label":"Transcendental","children":[]},{"id":"transcendent","label":"Transcendent","children":[]},{"id":"immanent","label":"Immanent","children":[]}]},{"id":"personal-level","label":"Personal level","children":[]},{"id":"subpersonal-level","label":"Subpersonal level","children":[]},{"id":"functional-level","label":"Functional level","children":[]},{"id":"computational-level","label":"Computational level","children":[]},{"id":"neural-level","label":"Neural / biological level","children":[]},{"id":"behavioral-level","label":"Behavioral level","children":[]},{"id":"normative-level","label":"Normative / social level","children":[]},{"id":"operationalization","label":"Operationalization","children":[]},{"id":"correlate","label":"Correlate","children":[]},{"id":"mechanism","label":"Mechanism","children":[]},{"id":"realization","label":"Realization / implementation","children":[]}]},{"id":"experience-domain","label":"Experience & consciousness","children":[{"id":"consciousness","label":"Consciousness","children":[{"id":"phenomenal-consciousness","label":"Phenomenal consciousness","children":[{"id":"phenomenal-character","label":"Phenomenal character","children":[]},{"id":"qualia","label":"Qualia","children":[]},{"id":"subjectivity","label":"Subjectivity","children":[]}]},{"id":"access-consciousness","label":"Access consciousness","children":[]},{"id":"creature-consciousness","label":"Creature consciousness","children":[]},{"id":"state-consciousness","label":"State consciousness","children":[]},{"id":"self-consciousness","label":"Self-consciousness","children":[{"id":"pre-reflective-self-awareness","label":"Pre-reflective self-awareness","children":[]},{"id":"reflective-self-consciousness","label":"Reflective self-consciousness","children":[]},{"id":"metaconsciousness","label":"Metaconsciousness / meta-awareness","children":[]}]}]},{"id":"sentience","label":"Sentience","children":[]},{"id":"awareness","label":"Awareness","children":[]},{"id":"arousal-wakefulness","label":"Arousal / wakefulness","children":[]},{"id":"level-consciousness","label":"Level of consciousness","children":[]},{"id":"content-consciousness","label":"Content of consciousness","children":[]},{"id":"nonconscious-processing","label":"Nonconscious / unconscious processing","children":[]}]},{"id":"selection-domain","label":"Selection & attention","children":[{"id":"attention","label":"Attention","children":[{"id":"selective-attention","label":"Selective attention","children":[]},{"id":"sustained-attention","label":"Sustained attention / vigilance","children":[]},{"id":"divided-attention","label":"Divided attention","children":[]},{"id":"endogenous-attention","label":"Endogenous / top-down attention","children":[]},{"id":"exogenous-attention","label":"Exogenous / bottom-up attention","children":[]},{"id":"executive-attention","label":"Executive attention","children":[]},{"id":"overt-covert-attention","label":"Overt / covert attention","children":[]},{"id":"machine-attention","label":"Machine-learning attention","children":[]}]},{"id":"salience-mind","label":"Salience","children":[]},{"id":"relevance-mind","label":"Relevance","children":[]},{"id":"orienting","label":"Orienting","children":[]},{"id":"cognitive-control","label":"Cognitive control","children":[]}]},{"id":"content-domain","label":"Aboutness & mental content","children":[{"id":"intentionality-mind","label":"Intentionality","children":[{"id":"intentional-object-mind","label":"Intentional object","children":[]},{"id":"noesis-mind","label":"Noesis","children":[]},{"id":"noema-mind","label":"Noema","children":[]}]},{"id":"mental-content","label":"Mental content","children":[]},{"id":"mental-representation","label":"Mental representation","children":[]},{"id":"perception-mind","label":"Perception","children":[]},{"id":"sensation-mind","label":"Sensation","children":[]},{"id":"imagination","label":"Imagination","children":[]},{"id":"thought","label":"Thought","children":[]},{"id":"concept-mind","label":"Concept","children":[]},{"id":"propositional-attitude","label":"Propositional attitude","children":[{"id":"belief-mind","label":"Belief","children":[]},{"id":"desire-mind","label":"Desire","children":[]}]}]},{"id":"cognition-domain","label":"Cognition & competence","children":[{"id":"cognition","label":"Cognition","children":[]},{"id":"intelligence","label":"Intelligence","children":[]},{"id":"understanding","label":"Understanding","children":[]},{"id":"reasoning","label":"Reasoning","children":[]},{"id":"inference-mind","label":"Inference","children":[]},{"id":"problem-solving","label":"Problem solving","children":[]},{"id":"planning","label":"Planning","children":[]},{"id":"decision-making","label":"Decision-making","children":[]},{"id":"executive-function","label":"Executive function","children":[]},{"id":"metacognition","label":"Metacognition","children":[]},{"id":"creativity","label":"Creativity","children":[]},{"id":"cognitive-flexibility","label":"Cognitive flexibility","children":[]}]},{"id":"memory-domain","label":"Memory & learning","children":[{"id":"memory","label":"Memory","children":[{"id":"working-memory","label":"Working memory","children":[]},{"id":"episodic-memory","label":"Episodic memory","children":[]},{"id":"semantic-memory","label":"Semantic memory","children":[]},{"id":"procedural-memory","label":"Procedural memory","children":[]},{"id":"autobiographical-memory","label":"Autobiographical memory","children":[]},{"id":"explicit-implicit-memory","label":"Explicit / implicit memory","children":[]}]},{"id":"learning","label":"Learning","children":[{"id":"conditioning","label":"Conditioning","children":[]},{"id":"reinforcement-learning","label":"Reinforcement learning","children":[]},{"id":"statistical-learning","label":"Statistical learning","children":[]}]},{"id":"recall","label":"Recall","children":[]},{"id":"recognition-memory","label":"Recognition memory","children":[]},{"id":"forgetting","label":"Forgetting","children":[]}]},{"id":"affect-domain","label":"Affect & valuation","children":[{"id":"affect","label":"Affect","children":[{"id":"valence","label":"Valence","children":[]},{"id":"affective-arousal","label":"Affective arousal","children":[]}]},{"id":"feeling","label":"Feeling","children":[]},{"id":"emotion","label":"Emotion","children":[]},{"id":"mood","label":"Mood","children":[]},{"id":"appraisal","label":"Appraisal","children":[]},{"id":"interoception","label":"Interoception","children":[]},{"id":"pain","label":"Pain","children":[{"id":"nociception","label":"Nociception","children":[]}]},{"id":"pleasure","label":"Pleasure","children":[]},{"id":"suffering","label":"Suffering","children":[]},{"id":"reward","label":"Reward","children":[]},{"id":"motivation","label":"Motivation","children":[]},{"id":"drive","label":"Drive","children":[]}]},{"id":"agency-domain","label":"Agency & action","children":[{"id":"agent","label":"Agent","children":[]},{"id":"agency","label":"Agency","children":[]},{"id":"action","label":"Action","children":[]},{"id":"goal","label":"Goal","children":[]},{"id":"intention-action","label":"Intention","children":[]},{"id":"volition","label":"Volition","children":[]},{"id":"choice","label":"Choice","children":[]},{"id":"control","label":"Control","children":[]},{"id":"autonomy","label":"Autonomy","children":[]},{"id":"affordance-mind","label":"Affordance","children":[]},{"id":"skill","label":"Skill","children":[]},{"id":"habit","label":"Habit","children":[]},{"id":"sense-agency","label":"Sense of agency","children":[]},{"id":"free-will","label":"Free will","children":[]}]},{"id":"self-domain","label":"Self & continuity","children":[{"id":"subject-mind","label":"Subject","children":[]},{"id":"self","label":"Self","children":[{"id":"minimal-self","label":"Minimal self","children":[]},{"id":"embodied-self","label":"Embodied / bodily self","children":[]},{"id":"perspectival-self","label":"Perspectival self","children":[]},{"id":"ownership","label":"Sense of ownership","children":[]},{"id":"self-model","label":"Self-model","children":[]},{"id":"narrative-self","label":"Narrative self","children":[]},{"id":"autobiographical-self","label":"Autobiographical self","children":[]}]},{"id":"ego","label":"Ego","children":[]},{"id":"personal-identity","label":"Personal identity","children":[]},{"id":"personhood","label":"Personhood","children":[]},{"id":"personality","label":"Personality","children":[]}]},{"id":"social-domain","label":"Social mind","children":[{"id":"intersubjectivity-mind","label":"Intersubjectivity","children":[]},{"id":"social-cognition","label":"Social cognition","children":[]},{"id":"theory-of-mind","label":"Theory of mind","children":[]},{"id":"mentalizing","label":"Mentalizing","children":[]},{"id":"empathy","label":"Empathy","children":[{"id":"cognitive-empathy","label":"Cognitive empathy","children":[]},{"id":"affective-empathy","label":"Affective empathy","children":[]},{"id":"compassion","label":"Compassion","children":[]}]},{"id":"joint-attention","label":"Joint attention","children":[]},{"id":"collective-intentionality","label":"Collective intentionality","children":[]},{"id":"communication","label":"Communication","children":[]},{"id":"language-mind","label":"Language","children":[]},{"id":"normativity","label":"Normativity","children":[]}]}]};
+const mapSelect = document.getElementById("ms3-map");
 
 const shortLabels = {
+  "subject-world": "Subject–world",
   "structural-vocabulary": "Structure",
   "levels": "Description levels",
   "experience-domain": "Experience",
@@ -311,63 +320,49 @@ const shortLabels = {
   "social-domain": "Social mind"
 };
 
-const metaDefinitions = {
-  none: {
-    label: "No active meta-sigil",
-    members: [],
-    constraints: "—",
-    affordance: "Sibling sigils remain a neighborhood without one shared standing constraint."
-  },
-  language: {
-    label: "Language",
-    members: ["selection-domain", "content-domain", "cognition-domain", "memory-domain", "social-domain"],
-    constraints: "shared signs · compositional conventions · repair and turn-taking norms",
-    affordance: "Compress and coordinate attention across subjects and time."
-  },
-  religion: {
-    label: "Religion (as a social meta-sigil)",
-    members: ["experience-domain", "content-domain", "cognition-domain", "memory-domain", "affect-domain", "agency-domain", "self-domain", "social-domain"],
-    constraints: "shared sacred distinctions · narratives · practices · authorities and norms",
-    affordance: "Coordinate meaning, identity, time, obligation, and collective action."
-  },
-  polite: {
-    label: "Polite society",
-    members: ["cognition-domain", "affect-domain", "agency-domain", "self-domain", "social-domain"],
-    constraints: "inhibit harm · respect boundaries · reciprocal recognition · predictable repair",
-    affordance: "Low-friction coexistence among many independently moving attentions."
-  }
-};
+const FISHBOWL_CUT_ANGLE = Math.PI * 0.2;
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
-const writingPath = [
-  "experience-domain",
-  "affect-domain",
-  "self-domain",
-  "memory-domain",
-  "content-domain",
-  "selection-domain",
-  "social-domain",
-  "experience-domain"
-];
+let THREE;
+let renderer;
+let scene;
+let camera;
+let taxonomies;
+let taxonomy;
+let currentNode;
+let currentTaxonomyKey = "subjectWorld";
+let worldStack = [];
+let nodeIndex = new Map();
+let parentIndex = new Map();
+let pathIndex = new Map();
 
-const nodeIndex = new Map();
-const parentIndex = new Map();
-const pathIndex = new Map();
+let worldGroup;
+let positions = new Map();
+let fishbowls = new Map();
+let labelEntries = [];
+let attentionMesh;
+let attentionTarget;
+let palette = [];
+let neutralColor;
+let attentionColor;
 
-function indexTree(node, parent = null, path = []) {
-  nodeIndex.set(node.id, node);
-  parentIndex.set(node.id, parent);
-  pathIndex.set(node.id, [...path, node.label]);
-  node.children.forEach((child) => indexTree(child, node, [...path, node.label]));
-}
-indexTree(taxonomy);
-
-function countDescendants(node) {
-  return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
-}
+let currentWorldRadius = 5.8;
+let parentWorldRadius = 0;
+let yaw = 0.62;
+let pitch = 0.46;
+let distance = 4.7;
+let targetY = -1.15;
+let dragging = false;
+let moved = false;
+let pointerStart = { x: 0, y: 0 };
+let lastPointer = { x: 0, y: 0 };
+let interactionLocked = false;
+let cameraTransition = null;
+let transitionCompletion = null;
 
 function resolveColor(variableName) {
   const probe = document.createElement("span");
-  probe.style.color = `var(${variableName})`;
+  probe.style.color = "var(" + variableName + ")";
   probe.style.position = "absolute";
   probe.style.visibility = "hidden";
   rootElement.append(probe);
@@ -376,42 +371,40 @@ function resolveColor(variableName) {
   return value;
 }
 
-let THREE;
-let renderer;
-let scene;
-let camera;
-let worldGroup;
-let waveMesh = null;
-let waveBase = null;
-let participantPoints = [];
-let attentionMesh;
-let attentionTarget;
-let trailLine = null;
-let currentNode = taxonomy;
-let selectedNode = taxonomy;
-let positions = new Map();
-let fishbowls = new Map();
-let labelEntries = [];
-let palette = [];
-let neutralColor;
-let borderColor;
-let attentionColor;
-let yaw = 0.65;
-let pitch = 0.72;
-let distance = 14;
-let targetY = -1.25;
-let dragging = false;
-let moved = false;
-let pointerStart = { x: 0, y: 0 };
-let lastPointer = { x: 0, y: 0 };
-let writingTimers = [];
-const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-
 function updatePalette() {
-  palette = [1, 2, 3, 4, 5, 6].map((index) => new THREE.Color(resolveColor(`--viz-series-${index}`)));
+  palette = [1, 2, 3, 4, 5, 6].map((index) =>
+    new THREE.Color(resolveColor("--viz-series-" + index))
+  );
   neutralColor = new THREE.Color(resolveColor("--muted-foreground"));
-  borderColor = new THREE.Color(resolveColor("--border"));
   attentionColor = new THREE.Color(resolveColor("--yellow"));
+}
+
+function indexTree(node, parent = null, path = []) {
+  node.children = node.children || [];
+  nodeIndex.set(node.id, node);
+  parentIndex.set(node.id, parent);
+  pathIndex.set(node.id, path.concat(node.label));
+  node.children.forEach((child) => indexTree(child, node, path.concat(node.label)));
+}
+
+function activateTaxonomy(key) {
+  currentTaxonomyKey = key;
+  taxonomy = taxonomies[key];
+  nodeIndex = new Map();
+  parentIndex = new Map();
+  pathIndex = new Map();
+  indexTree(taxonomy);
+  worldStack = [];
+  currentNode = taxonomy;
+  cameraTransition = null;
+  transitionCompletion = null;
+  interactionLocked = false;
+  renderCurrent();
+  document.title = taxonomy.label + " — recursive sigils";
+}
+
+function countDescendants(node) {
+  return node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
 }
 
 function disposeObject(object) {
@@ -431,23 +424,17 @@ function clearWorld() {
   }
   worldGroup = new THREE.Group();
   scene.add(worldGroup);
-  waveMesh = null;
-  waveBase = null;
-  participantPoints = [];
-  trailLine = null;
   positions = new Map();
   fishbowls = new Map();
   labelEntries = [];
   labelLayer.replaceChildren();
 }
 
-const FISHBOWL_CUT_ANGLE = Math.PI * 0.2;
-
-function fishbowlGeometry(radius, segments = 28) {
+function fishbowlGeometry(radius, segments = 30) {
   return new THREE.SphereGeometry(
     radius,
     segments,
-    Math.max(12, segments),
+    Math.max(14, segments),
     0,
     Math.PI * 2,
     FISHBOWL_CUT_ANGLE,
@@ -455,8 +442,9 @@ function fishbowlGeometry(radius, segments = 28) {
   );
 }
 
-function makeFishbowl(node, radius, color, interactive = true, opacity = 0.18) {
+function makeFishbowl(node, radius, color, options = {}) {
   const group = new THREE.Group();
+  const opacity = options.opacity === undefined ? 0.18 : options.opacity;
   const shell = new THREE.Mesh(
     fishbowlGeometry(radius),
     new THREE.MeshBasicMaterial({
@@ -470,355 +458,496 @@ function makeFishbowl(node, radius, color, interactive = true, opacity = 0.18) {
   const openingRadius = radius * Math.sin(FISHBOWL_CUT_ANGLE);
   const openingHeight = radius * Math.cos(FISHBOWL_CUT_ANGLE);
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(openingRadius, Math.max(0.018, radius * 0.025), 8, 64),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: Math.min(0.9, opacity * 3.5) })
+    new THREE.TorusGeometry(openingRadius, Math.max(0.018, radius * 0.025), 8, 72),
+    new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: Math.min(0.9, opacity * 3.8),
+      depthWrite: false
+    })
   );
   rim.rotation.x = Math.PI / 2;
   rim.position.y = openingHeight;
-  if (interactive) {
+
+  if (options.child) {
     shell.userData.nodeId = node.id;
     rim.userData.nodeId = node.id;
   }
+  if (options.exit) {
+    rim.userData.exitCurrent = true;
+    const portal = new THREE.Mesh(
+      new THREE.CircleGeometry(openingRadius * 0.94, 72),
+      new THREE.MeshBasicMaterial({
+        color: attentionColor,
+        transparent: true,
+        opacity: 0.035,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      })
+    );
+    portal.rotation.x = -Math.PI / 2;
+    portal.position.y = openingHeight + 0.012;
+    portal.userData.exitCurrent = true;
+    group.add(portal);
+  }
+
   group.add(shell, rim);
-  return group;
+  return { group, shell, rim, radius, openingHeight, openingRadius };
 }
 
-function childLayout(children) {
-  const layout = [];
+function radialLayout(children, innerRadius, outerRadius) {
   const count = children.length;
-  if (count === 0) return layout;
+  if (!count) return [];
+  if (count === 1) return [{ child: children[0], x: 0, z: 0 }];
   if (count <= 6) {
-    const radius = count === 1 ? 0 : 3.15;
-    children.forEach((child, index) => {
-      const angle = count === 1 ? 0 : -Math.PI / 2 + index * Math.PI * 2 / count;
-      layout.push({ child, x: Math.cos(angle) * radius, z: Math.sin(angle) * radius, ring: 0 });
+    const ringRadius = count <= 3 ? innerRadius * 0.82 : innerRadius;
+    return children.map((child, index) => {
+      const angle = -Math.PI / 2 + index * Math.PI * 2 / count;
+      return { child, x: Math.cos(angle) * ringRadius, z: Math.sin(angle) * ringRadius };
     });
-    return layout;
   }
-  const innerCount = Math.ceil(count * 0.43);
+
+  const innerCount = Math.ceil(count * 0.42);
   const outerCount = count - innerCount;
+  const layout = [];
   children.slice(0, innerCount).forEach((child, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / innerCount;
-    layout.push({ child, x: Math.cos(angle) * 2.25, z: Math.sin(angle) * 2.25, ring: 0 });
+    layout.push({ child, x: Math.cos(angle) * innerRadius, z: Math.sin(angle) * innerRadius });
   });
   children.slice(innerCount).forEach((child, index) => {
     const angle = -Math.PI / 2 + Math.PI / Math.max(outerCount, 1) + index * Math.PI * 2 / outerCount;
-    layout.push({ child, x: Math.cos(angle) * 4.25, z: Math.sin(angle) * 4.25, ring: 1 });
+    layout.push({ child, x: Math.cos(angle) * outerRadius, z: Math.sin(angle) * outerRadius });
   });
   return layout;
 }
 
+function childLayout(children) {
+  const scale = currentWorldRadius / 5.8;
+  return radialLayout(children, 2.05 * scale, 3.72 * scale);
+}
+
+function neighborLayout(neighbors) {
+  return radialLayout(neighbors, 4.55, 6.08);
+}
+
 function addRecursiveHints(parentGroup, node, radius, color) {
-  const hints = node.children.slice(0, 4);
+  const hints = node.children.slice(0, 5);
   if (!hints.length) return;
-  const hintRadius = radius * 0.15;
+  const hintRadius = radius * 0.13;
   hints.forEach((child, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / hints.length;
-    const mini = makeFishbowl(child, hintRadius, color, false, 0.24);
-    mini.position.set(Math.cos(angle) * radius * 0.38, -radius * 0.32, Math.sin(angle) * radius * 0.38);
-    parentGroup.add(mini);
+    const mini = makeFishbowl(child, hintRadius, color, { opacity: 0.24 });
+    mini.group.position.set(
+      Math.cos(angle) * radius * 0.38,
+      -radius * 0.34,
+      Math.sin(angle) * radius * 0.38
+    );
+    parentGroup.add(mini.group);
   });
 }
 
-function makeLabel(node, position) {
-  const element = document.createElement("span");
+function makeNodeLabel(node, position, relation) {
+  const element = document.createElement("button");
+  element.type = "button";
   element.className = "ms3-label text-small";
-  element.textContent = shortLabels[node.id] || node.label;
-  labelLayer.append(element);
-  labelEntries.push({ node, position, element });
-}
-
-function updateCamera() {
-  const horizontal = Math.sin(pitch) * distance;
-  camera.position.set(
-    Math.sin(yaw) * horizontal,
-    Math.cos(pitch) * distance + targetY,
-    Math.cos(yaw) * horizontal
+  element.dataset.kind = "node";
+  element.textContent = shortLabels[node.id] || node.label.replace(/^\d+\.\s*/, "");
+  element.setAttribute(
+    "aria-label",
+    (relation === "neighbor" ? "Move to neighboring sigil " : "Enter ") + node.label
   );
-  camera.lookAt(0, targetY, 0);
+  element.addEventListener("click", () => {
+    if (relation === "neighbor") moveToNeighbor(node);
+    else enterNode(node);
+  });
+  labelLayer.append(element);
+  labelEntries.push({ position, element, relation });
 }
 
-function resetCamera() {
-  yaw = 0.65;
-  pitch = 0.72;
-  distance = currentNode.children.length > 9 ? 15.5 : 13.5;
-  updateCamera();
+function makeExitLabel(parentNode) {
+  const element = document.createElement("button");
+  element.type = "button";
+  element.className = "ms3-label text-small";
+  element.dataset.kind = "exit";
+  element.textContent = "↑ " + parentNode.label;
+  element.setAttribute("aria-label", "Return to " + parentNode.label);
+  element.addEventListener("click", exitCurrent);
+  labelLayer.append(element);
+  labelEntries.push({
+    position: new THREE.Vector3(),
+    element,
+    relation: "exit",
+    openingRadius: currentWorldRadius * Math.sin(FISHBOWL_CUT_ANGLE),
+    openingHeight: currentWorldRadius * Math.cos(FISHBOWL_CUT_ANGLE) + 0.14
+  });
 }
 
 function updateLabels() {
   const width = sceneElement.clientWidth;
   const height = sceneElement.clientHeight;
   labelEntries.forEach((entry) => {
+    if (entry.relation === "exit") {
+      entry.position.set(
+        -Math.sin(yaw) * entry.openingRadius * 0.82,
+        entry.openingHeight,
+        -Math.cos(yaw) * entry.openingRadius * 0.82
+      );
+    }
     const projected = entry.position.clone().project(camera);
     const visible = projected.z > -1 && projected.z < 1;
     entry.element.hidden = !visible;
     if (!visible) return;
     const x = (projected.x * 0.5 + 0.5) * width;
     const y = (-projected.y * 0.5 + 0.5) * height;
-    entry.element.style.left = `${x}px`;
-    entry.element.style.top = `${y}px`;
-    entry.element.style.opacity = entry.node.id === selectedNode.id ? "1" : "0.78";
+    entry.element.style.left = Math.max(18, Math.min(width - 18, x)) + "px";
+    entry.element.style.top = Math.max(18, Math.min(height - 18, y)) + "px";
   });
 }
 
-function updateSelectionMaterials() {
-  fishbowls.forEach((entry, id) => {
-    const selected = id === selectedNode.id;
-    entry.group.scale.setScalar(selected ? 1.1 : 1);
-    entry.shell.material.opacity = selected ? 0.42 : 0.18;
-    entry.rim.material.opacity = selected ? 1 : 0.62;
-  });
+function desiredCameraPosition() {
+  const horizontal = Math.sin(pitch) * distance;
+  return new THREE.Vector3(
+    Math.sin(yaw) * horizontal,
+    Math.cos(pitch) * distance + targetY,
+    Math.cos(yaw) * horizontal
+  );
 }
 
-function selectedPosition() {
-  if (selectedNode.id === currentNode.id) return new THREE.Vector3(0, 0.32, 0);
-  const position = positions.get(selectedNode.id);
-  return position ? position.clone().add(new THREE.Vector3(0, 0.32, 0)) : new THREE.Vector3(0, 0.32, 0);
+function applyOrbitCamera() {
+  camera.position.copy(desiredCameraPosition());
+  camera.lookAt(0, targetY, 0);
 }
 
-function updateDetail(extra = "") {
-  const path = pathIndex.get(selectedNode.id).join(" › ");
-  const meta = metaDefinitions[metaSelect.value];
-  const parent = parentIndex.get(selectedNode.id);
-  const relation = selectedNode.id === currentNode.id
-    ? "current world"
-    : `child of ${parent ? parent.label : currentNode.label}; neighbor of ${Math.max(0, currentNode.children.length - 1)} sibling sigils`;
-  const writingLine = extra || "The active point occupies one sigil; selecting another moves attention without changing the containment hierarchy.";
+function resetOrbit() {
+  yaw = 0.62;
+  if (worldStack.length) {
+    targetY = -0.72;
+    pitch = 1.02;
+    distance = 2.68;
+  } else {
+    targetY = -1.15;
+    pitch = currentNode.children.length > 8 ? 0.82 : 0.9;
+    distance = currentNode.children.length > 9 ? 5.0 : 4.65;
+  }
+}
+
+function startCameraTransition(points, lookFrom, lookTo, duration, onComplete) {
+  if (reducedMotion.matches) {
+    camera.position.copy(points[points.length - 1]);
+    camera.lookAt(lookTo);
+    onComplete();
+    return;
+  }
+  cameraTransition = {
+    curve: new THREE.CatmullRomCurve3(points, false, "centripetal", 0.4),
+    lookFrom: lookFrom.clone(),
+    lookTo: lookTo.clone(),
+    startedAt: performance.now(),
+    duration,
+    onComplete
+  };
+  interactionLocked = true;
+}
+
+function updateCamera(timeMs) {
+  if (!cameraTransition) {
+    applyOrbitCamera();
+    return;
+  }
+  const raw = Math.min(1, (timeMs - cameraTransition.startedAt) / cameraTransition.duration);
+  const eased = 1 - Math.pow(1 - raw, 3);
+  camera.position.copy(cameraTransition.curve.getPoint(eased));
+  const look = cameraTransition.lookFrom.clone().lerp(cameraTransition.lookTo, eased);
+  camera.lookAt(look);
+  if (raw >= 1) {
+    transitionCompletion = cameraTransition.onComplete;
+    cameraTransition = null;
+  }
+}
+
+function nodeDefinition(node) {
+  return node.definition || node.core || "";
+}
+
+function nodeFamily(node) {
+  return node.family || node.region || "";
+}
+
+function nodeDistinction(node) {
+  return node.distinction || node.contrast || "";
+}
+
+function navigationPath() {
+  return worldStack.map((node) => node.label).concat(currentNode.label).join(" › ");
+}
+
+function addDetailRow(grid, name, value) {
+  if (!value) return;
+  const dt = document.createElement("dt");
+  dt.textContent = name;
+  const dd = document.createElement("dd");
+  dd.textContent = value;
+  grid.append(dt, dd);
+}
+
+function updateDetail() {
   detailElement.replaceChildren();
+
+  const parent = worldStack.length ? worldStack[worldStack.length - 1] : null;
+  const neighborCount = parent
+    ? parent.children.filter((child) => child.id !== currentNode.id).length
+    : 0;
+
   const header = document.createElement("div");
   header.className = "viz-row";
   const heading = document.createElement("h3");
-  heading.textContent = selectedNode.label;
+  heading.textContent = currentNode.label;
   const badge = document.createElement("span");
   badge.className = "viz-badge";
-  badge.textContent = selectedNode.children.length ? `${selectedNode.children.length} children` : "leaf sigil";
+  badge.textContent = parent
+    ? currentNode.children.length + " inside · " + neighborCount + " outside"
+    : currentNode.children.length + (currentNode.children.length === 1 ? " child" : " children");
   header.append(heading, badge);
-  const text = document.createElement("p");
-  text.textContent = writingLine;
+
+  const definition = document.createElement("p");
+  definition.textContent = nodeDefinition(currentNode);
+
   const grid = document.createElement("dl");
   grid.className = "ms3-detail-grid";
-  [
-    ["Scope", path],
-    ["Relation", relation],
-    ["Meta-sigil", `${meta.label}: ${meta.constraints}`],
-    ["Affords", meta.affordance]
-  ].forEach(([name, value]) => {
-    const dt = document.createElement("dt");
-    dt.textContent = name;
-    const dd = document.createElement("dd");
-    dd.textContent = value;
-    grid.append(dt, dd);
-  });
-  detailElement.append(header, text, grid);
-  upButton.disabled = currentNode.id === taxonomy.id;
-  enterButton.disabled = selectedNode.children.length === 0;
+  addDetailRow(grid, "Path", navigationPath());
+  addDetailRow(grid, "Scope", nodeFamily(currentNode));
+  addDetailRow(grid, "Role", currentNode.role || "");
+  addDetailRow(grid, "Defining contrast", nodeDistinction(currentNode));
+
+  detailElement.append(header, definition, grid);
+
+  if (currentNode.domains && currentNode.domains.length) {
+    const readings = document.createElement("section");
+    readings.className = "ms3-domain-readings";
+    const title = document.createElement("h4");
+    title.textContent = "Domain readings";
+    const readingsGrid = document.createElement("dl");
+    readingsGrid.className = "ms3-detail-grid";
+    currentNode.domains.forEach((entry) => addDetailRow(readingsGrid, entry[0], entry[1]));
+    readings.append(title, readingsGrid);
+    detailElement.append(readings);
+  }
 }
 
-function convexHull(points) {
-  if (points.length <= 2) return points.slice();
-  const sorted = points.slice().sort((a, b) => a.x - b.x || a.z - b.z);
-  const cross = (o, a, b) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
-  const lower = [];
-  sorted.forEach((point) => {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], point) <= 0) lower.pop();
-    lower.push(point);
-  });
-  const upper = [];
-  [...sorted].reverse().forEach((point) => {
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], point) <= 0) upper.pop();
-    upper.push(point);
-  });
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
-
-function addMetaSigil() {
-  const definition = metaDefinitions[metaSelect.value];
-  if (currentNode.id !== taxonomy.id || definition.members.length < 3) return;
-  const memberPositions = definition.members
-    .map((id) => positions.get(id))
-    .filter(Boolean)
-    .map((position) => ({ x: position.x, z: position.z }));
-  const hull = convexHull(memberPositions);
-  if (hull.length < 3) return;
-
-  const shape = new THREE.Shape();
-  shape.moveTo(hull[0].x, hull[0].z);
-  hull.slice(1).forEach((point) => shape.lineTo(point.x, point.z));
-  shape.closePath();
-  const geometry = new THREE.ShapeGeometry(shape);
-  waveBase = Float32Array.from(geometry.attributes.position.array);
-  const material = new THREE.MeshBasicMaterial({
-    color: palette[4],
-    transparent: true,
-    opacity: 0.2,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
-  waveMesh = new THREE.Mesh(geometry, material);
-  waveMesh.rotation.x = Math.PI / 2;
-  waveMesh.position.y = -0.28;
-  worldGroup.add(waveMesh);
-
-  const outlinePoints = hull.map((point) => new THREE.Vector3(point.x, -0.27, point.z));
-  outlinePoints.push(outlinePoints[0].clone());
-  const outline = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(outlinePoints),
-    new THREE.LineBasicMaterial({ color: palette[4], transparent: true, opacity: 0.78 })
-  );
-  worldGroup.add(outline);
-
-  definition.members.forEach((id) => {
-    const position = positions.get(id);
-    if (!position) return;
-    const point = new THREE.Mesh(
-      new THREE.SphereGeometry(0.1, 16, 10),
-      new THREE.MeshBasicMaterial({ color: palette[4] })
-    );
-    point.position.set(position.x, -0.03, position.z);
-    point.userData.baseY = point.position.y;
-    point.userData.phase = position.x * 0.7 + position.z * 0.4;
-    participantPoints.push(point);
-    worldGroup.add(point);
-  });
-}
-
-function renderCurrent() {
+function renderCurrent(options = {}) {
   clearWorld();
   updatePalette();
-  selectedNode = currentNode;
+  const parentNode = worldStack.length ? worldStack[worldStack.length - 1] : null;
+  const neighbors = parentNode
+    ? parentNode.children.filter((node) => node.id !== currentNode.id)
+    : [];
 
-  const worldRadius = 5.6;
-  const worldFishbowl = makeFishbowl(currentNode, worldRadius, neutralColor, false, 0.065);
-  worldFishbowl.position.y = 0;
-  worldGroup.add(worldFishbowl);
+  currentWorldRadius = parentNode ? 3.25 : (currentNode.children.length > 9 ? 6.25 : 5.8);
+  parentWorldRadius = parentNode ? (neighbors.length > 8 ? 7.75 : 7.15) : 0;
+
+  if (parentNode) {
+    const parentBoundary = makeFishbowl(
+      parentNode,
+      parentWorldRadius,
+      neutralColor,
+      { opacity: 0.024 }
+    );
+    worldGroup.add(parentBoundary.group);
+  }
+
+  const neighborPositions = neighborLayout(neighbors);
+  neighborPositions.forEach((item, index) => {
+    const neighbor = item.child;
+    const descendants = countDescendants(neighbor);
+    const radius = 0.46 + Math.min(0.2, Math.log2(descendants + 1) * 0.05);
+    const siblingIndex = parentNode.children.findIndex((node) => node.id === neighbor.id);
+    const color = palette[(siblingIndex < 0 ? index : siblingIndex) % palette.length];
+    const entry = makeFishbowl(neighbor, radius, color, { child: true, opacity: 0.16 });
+    entry.relation = "neighbor";
+    entry.group.position.set(item.x, -1.0, item.z);
+    worldGroup.add(entry.group);
+    positions.set(neighbor.id, entry.group.position.clone());
+    fishbowls.set(neighbor.id, entry);
+    makeNodeLabel(
+      neighbor,
+      entry.group.position.clone().add(new THREE.Vector3(0, radius * 0.48, 0)),
+      "neighbor"
+    );
+  });
+
+  const currentBoundary = makeFishbowl(
+    currentNode,
+    currentWorldRadius,
+    neutralColor,
+    { opacity: parentNode ? 0.09 : 0.065, exit: Boolean(parentNode) }
+  );
+  worldGroup.add(currentBoundary.group);
 
   const layout = childLayout(currentNode.children);
-  layout.forEach(({ child, x, z }, index) => {
+  layout.forEach((item, index) => {
+    const child = item.child;
     const descendants = countDescendants(child);
-    const radius = 0.58 + Math.min(0.34, Math.log2(descendants + 1) * 0.085);
+    const radius = parentNode
+      ? 0.36 + Math.min(0.18, Math.log2(descendants + 1) * 0.045)
+      : 0.56 + Math.min(0.34, Math.log2(descendants + 1) * 0.082);
     const color = palette[index % palette.length];
-    const group = makeFishbowl(child, radius, color, true, 0.18);
-    group.position.set(x, -1.18, z);
-    addRecursiveHints(group, child, radius, color);
-    worldGroup.add(group);
-    positions.set(child.id, group.position.clone());
-    fishbowls.set(child.id, { group, shell: group.children[0], rim: group.children[1] });
-    makeLabel(child, group.position.clone().add(new THREE.Vector3(0, radius * 0.42, 0)));
+    const entry = makeFishbowl(child, radius, color, { child: true, opacity: 0.19 });
+    entry.relation = "child";
+    entry.group.position.set(item.x, parentNode ? -0.78 : -1.32, item.z);
+    addRecursiveHints(entry.group, child, radius, color);
+    worldGroup.add(entry.group);
+    positions.set(child.id, entry.group.position.clone());
+    fishbowls.set(child.id, entry);
+    makeNodeLabel(
+      child,
+      entry.group.position.clone().add(new THREE.Vector3(0, radius * 0.48, 0)),
+      "child"
+    );
   });
 
   attentionMesh = new THREE.Mesh(
     new THREE.SphereGeometry(0.15, 22, 14),
     new THREE.MeshBasicMaterial({ color: attentionColor })
   );
-  attentionMesh.position.set(0, 0.32, 0);
+  attentionMesh.position.set(0, 0.12, 0);
   attentionTarget = attentionMesh.position.clone();
   worldGroup.add(attentionMesh);
 
-  addMetaSigil();
-  resetCamera();
-  updateSelectionMaterials();
+  if (parentNode) makeExitLabel(parentNode);
+
+  resetOrbit();
   updateDetail();
-}
 
-function selectNode(node, message = "") {
-  selectedNode = node;
-  attentionTarget = selectedPosition();
-  updateSelectionMaterials();
-  updateDetail(message);
-}
+  const destination = desiredCameraPosition();
+  const lookTarget = new THREE.Vector3(0, targetY, 0);
 
-function enterSelected() {
-  if (!selectedNode.children.length) return;
-  currentNode = selectedNode;
-  renderCurrent();
-}
-
-function goUp() {
-  const parent = parentIndex.get(currentNode.id);
-  if (!parent) return;
-  const previous = currentNode;
-  currentNode = parent;
-  renderCurrent();
-  selectNode(previous);
-}
-
-function clearWritingTimers() {
-  writingTimers.forEach((timer) => clearTimeout(timer));
-  writingTimers = [];
-  writingButton.disabled = false;
-}
-
-function drawWritingTrail(ids) {
-  if (trailLine) {
-    worldGroup.remove(trailLine);
-    disposeObject(trailLine);
-  }
-  const points = ids
-    .map((id) => positions.get(id))
-    .filter(Boolean)
-    .map((position, index) => position.clone().add(new THREE.Vector3(0, 0.12 + index * 0.01, 0)));
-  if (points.length < 2) return;
-  const curve = new THREE.CatmullRomCurve3(points, false, "centripetal", 0.35);
-  const geometry = new THREE.BufferGeometry().setFromPoints(curve.getPoints(100));
-  const material = new THREE.LineBasicMaterial({ color: attentionColor, transparent: true, opacity: 0.72 });
-  trailLine = new THREE.Line(geometry, material);
-  worldGroup.add(trailLine);
-}
-
-function traceWritingAttention() {
-  clearWritingTimers();
-  if (currentNode.id !== taxonomy.id) {
-    currentNode = taxonomy;
-    renderCurrent();
-  }
-  drawWritingTrail(writingPath);
-  const message = "The prose is not topic-continuous; it is attention-continuous. Ambient capture changes the text because the inhabited sigil changes while the attending subject remains continuous.";
-  if (reducedMotion.matches) {
-    const finalNode = nodeIndex.get(writingPath[writingPath.length - 1]);
-    selectNode(finalNode, message);
+  if (options.arrivalFromCenter && !reducedMotion.matches) {
+    const start = new THREE.Vector3(0, 0.18, 0.12);
+    camera.position.copy(start);
+    startCameraTransition(
+      [start, new THREE.Vector3(0, currentWorldRadius * 0.48, 0.62), destination],
+      new THREE.Vector3(0, -0.15, 0),
+      lookTarget,
+      680,
+      () => { interactionLocked = false; }
+    );
     return;
   }
-  writingButton.disabled = true;
-  writingPath.forEach((id, index) => {
-    const timer = setTimeout(() => {
-      selectNode(nodeIndex.get(id), message);
-      if (index === writingPath.length - 1) writingButton.disabled = false;
-    }, index * 1050);
-    writingTimers.push(timer);
-  });
-}
 
-function waveHeight(x, z, time) {
-  return Math.sin(time * 2.2 + Math.sqrt(x * x + z * z) * 1.35) * 0.12;
-}
-
-function animate(timeMs) {
-  const time = timeMs / 1000;
-  requestAnimationFrame(animate);
-  if (attentionMesh && attentionTarget) {
-    const factor = reducedMotion.matches ? 1 : 0.09;
-    attentionMesh.position.lerp(attentionTarget, factor);
-    const pulse = reducedMotion.matches ? 1 : 1 + Math.sin(time * 4.2) * 0.12;
-    attentionMesh.scale.setScalar(pulse);
-  }
-  if (waveMesh && waveBase) {
-    const positionsAttribute = waveMesh.geometry.attributes.position;
-    for (let index = 0; index < positionsAttribute.count; index += 1) {
-      const baseIndex = index * 3;
-      const x = waveBase[baseIndex];
-      const y = waveBase[baseIndex + 1];
-      positionsAttribute.setZ(index, reducedMotion.matches ? 0 : -waveHeight(x, y, time));
+  if (options.exitFromNode && !reducedMotion.matches) {
+    const previousEntry = fishbowls.get(options.exitFromNode.id);
+    if (previousEntry) {
+      const start = previousEntry.group.position.clone().add(
+        new THREE.Vector3(0, previousEntry.openingHeight + previousEntry.radius * 0.6, 0)
+      );
+      camera.position.copy(start);
+      startCameraTransition(
+        [start, start.clone().add(new THREE.Vector3(0, 0.9, 0.35)), destination],
+        previousEntry.group.position,
+        lookTarget,
+        720,
+        () => { interactionLocked = false; }
+      );
+      return;
     }
-    positionsAttribute.needsUpdate = true;
   }
-  participantPoints.forEach((point) => {
-    point.position.y = point.userData.baseY + (reducedMotion.matches ? 0 : Math.sin(time * 2.2 + point.userData.phase) * 0.12);
-  });
-  updateCamera();
-  updateLabels();
-  renderer.render(scene, camera);
+
+  camera.position.copy(destination);
+  camera.lookAt(lookTarget);
+  interactionLocked = false;
+}
+
+function enterNode(node) {
+  if (interactionLocked) return;
+  const entry = fishbowls.get(node.id);
+  if (!entry || entry.relation !== "child") return;
+
+  const finish = () => {
+    worldStack.push(currentNode);
+    currentNode = node;
+    renderCurrent({ arrivalFromCenter: true });
+  };
+
+  if (reducedMotion.matches) {
+    finish();
+    return;
+  }
+
+  const center = entry.group.position.clone();
+  const approach = center.clone().add(
+    new THREE.Vector3(0, entry.openingHeight + entry.radius * 0.72, entry.radius * 0.18)
+  );
+  const inside = center.clone().add(new THREE.Vector3(0, 0.06, 0));
+  attentionTarget = inside.clone();
+
+  startCameraTransition(
+    [camera.position.clone(), approach, inside],
+    new THREE.Vector3(0, targetY, 0),
+    center,
+    860,
+    finish
+  );
+}
+
+function moveToNeighbor(node) {
+  if (interactionLocked || !worldStack.length) return;
+  const entry = fishbowls.get(node.id);
+  if (!entry || entry.relation !== "neighbor") return;
+
+  const finish = () => {
+    currentNode = node;
+    renderCurrent({ arrivalFromCenter: true });
+  };
+
+  if (reducedMotion.matches) {
+    finish();
+    return;
+  }
+
+  const currentOpeningHeight = currentWorldRadius * Math.cos(FISHBOWL_CUT_ANGLE);
+  const leaveCurrent = new THREE.Vector3(0, currentOpeningHeight + 0.36, 0);
+  const center = entry.group.position.clone();
+  const approach = center.clone().add(
+    new THREE.Vector3(0, entry.openingHeight + entry.radius * 0.72, entry.radius * 0.16)
+  );
+  const inside = center.clone().add(new THREE.Vector3(0, 0.05, 0));
+  attentionTarget = inside.clone();
+
+  startCameraTransition(
+    [camera.position.clone(), leaveCurrent, approach, inside],
+    new THREE.Vector3(0, targetY, 0),
+    center,
+    1080,
+    finish
+  );
+}
+
+function exitCurrent() {
+  if (interactionLocked || !worldStack.length) return;
+
+  const previous = currentNode;
+  const finish = () => {
+    currentNode = worldStack.pop();
+    renderCurrent({ exitFromNode: previous });
+  };
+
+  if (reducedMotion.matches) {
+    finish();
+    return;
+  }
+
+  const openingHeight = currentWorldRadius * Math.cos(FISHBOWL_CUT_ANGLE);
+  const innerOpening = new THREE.Vector3(0, openingHeight - 0.38, 0);
+  const outside = new THREE.Vector3(0, currentWorldRadius + 0.78, 0);
+  attentionTarget = innerOpening.clone();
+
+  startCameraTransition(
+    [camera.position.clone(), innerOpening, outside],
+    new THREE.Vector3(0, targetY, 0),
+    new THREE.Vector3(0, openingHeight, 0),
+    820,
+    finish
+  );
 }
 
 function resize() {
@@ -837,76 +966,116 @@ function pointerCoordinates(event) {
   };
 }
 
-function selectFromPointer(event) {
+function interactFromPointer(event) {
   const pointer = pointerCoordinates(event);
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(pointer, camera);
   const hits = raycaster.intersectObjects(worldGroup.children, true);
-  const hit = hits.find((candidate) => candidate.object.userData.nodeId);
-  if (!hit) return;
-  const node = nodeIndex.get(hit.object.userData.nodeId);
-  if (node) selectNode(node);
+
+  const childHit = hits.find((candidate) => candidate.object.userData.nodeId);
+  if (childHit) {
+    const node = nodeIndex.get(childHit.object.userData.nodeId);
+    const entry = node ? fishbowls.get(node.id) : null;
+    if (entry && entry.relation === "neighbor") moveToNeighbor(node);
+    else if (node) enterNode(node);
+    return;
+  }
+
+  const exitHit = hits.find((candidate) => candidate.object.userData.exitCurrent);
+  if (exitHit) exitCurrent();
+}
+
+function animate(timeMs) {
+  requestAnimationFrame(animate);
+
+  if (attentionMesh && attentionTarget) {
+    const factor = reducedMotion.matches ? 1 : 0.12;
+    attentionMesh.position.lerp(attentionTarget, factor);
+    const pulse = reducedMotion.matches ? 1 : 1 + Math.sin(timeMs / 1000 * 4.2) * 0.1;
+    attentionMesh.scale.setScalar(pulse);
+  }
+
+  updateCamera(timeMs);
+  updateLabels();
+  renderer.render(scene, camera);
+
+  if (transitionCompletion) {
+    const completion = transitionCompletion;
+    transitionCompletion = null;
+    requestAnimationFrame(completion);
+  }
 }
 
 async function initialize() {
   try {
-    THREE = await import("https://esm.sh/three@0.167.1");
+    const results = await Promise.all([
+      import("https://esm.sh/three@0.167.1"),
+      fetch(new URL("taxonomies.json", import.meta.url))
+    ]);
+    THREE = results[0];
+    const response = results[1];
+    if (!response.ok) throw new Error("Taxonomy data did not load");
+    taxonomies = await response.json();
+
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(64, 1, 0.08, 100);
     worldGroup = new THREE.Group();
     scene.add(worldGroup);
 
     canvas.addEventListener("pointerdown", (event) => {
+      if (interactionLocked) return;
       dragging = true;
       moved = false;
       pointerStart = { x: event.clientX, y: event.clientY };
       lastPointer = { ...pointerStart };
       canvas.setPointerCapture(event.pointerId);
     });
+
     canvas.addEventListener("pointermove", (event) => {
-      if (!dragging) return;
+      if (!dragging || interactionLocked) return;
       const dx = event.clientX - lastPointer.x;
       const dy = event.clientY - lastPointer.y;
-      if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) moved = true;
+      if (Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 5) {
+        moved = true;
+      }
       yaw -= dx * 0.008;
-      pitch = Math.max(0.25, Math.min(1.38, pitch + dy * 0.007));
+      pitch = Math.max(0.17, Math.min(1.22, pitch + dy * 0.006));
       lastPointer = { x: event.clientX, y: event.clientY };
     });
+
     canvas.addEventListener("pointerup", (event) => {
       if (!dragging) return;
       dragging = false;
       canvas.releasePointerCapture(event.pointerId);
-      if (!moved) selectFromPointer(event);
+      if (!moved && !interactionLocked) interactFromPointer(event);
     });
-    canvas.addEventListener("wheel", (event) => {
-      event.preventDefault();
-      distance = Math.max(8, Math.min(23, distance + event.deltaY * 0.012));
-    }, { passive: false });
-    canvas.addEventListener("dblclick", () => enterSelected());
 
-    upButton.addEventListener("click", goUp);
-    enterButton.addEventListener("click", enterSelected);
-    writingButton.addEventListener("click", traceWritingAttention);
-    metaSelect.addEventListener("change", () => renderCurrent());
+    canvas.addEventListener("wheel", (event) => {
+      if (interactionLocked) return;
+      event.preventDefault();
+      distance = Math.max(
+        2.6,
+        Math.min(currentWorldRadius - 0.42, distance + event.deltaY * 0.008)
+      );
+    }, { passive: false });
+
+    mapSelect.addEventListener("change", () => activateTaxonomy(mapSelect.value));
 
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(sceneElement);
     matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderCurrent());
 
     updatePalette();
-    renderCurrent();
+    activateTaxonomy(currentTaxonomyKey);
     resize();
     requestAnimationFrame(animate);
   } catch (error) {
     sceneElement.setAttribute("role", "alert");
-    sceneElement.textContent = "The 3D renderer could not start in this surface.";
-    upButton.disabled = true;
-    enterButton.disabled = true;
-    writingButton.disabled = true;
-    metaSelect.disabled = true;
+    sceneElement.textContent = "The taxonomy renderer could not start in this surface.";
+    mapSelect.disabled = true;
   }
 }
 
