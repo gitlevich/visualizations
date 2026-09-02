@@ -765,7 +765,9 @@ function updateLabels() {
       );
     }
     const projected = entry.position.clone().project(camera);
-    const frameLimit = compact ? 0.82 : 0.92;
+    const frameLimit = entry.relation === "child"
+      ? (compact ? 0.96 : 0.98)
+      : (compact ? 0.82 : 0.92);
     const visible = projected.z > -1 && projected.z < 1
       && Math.abs(projected.x) < frameLimit
       && Math.abs(projected.y) < frameLimit;
@@ -807,7 +809,10 @@ function updateLabels() {
     .sort((first, second) => first.score - second.score)
     .slice(0, 1)
     .forEach(show);
-  showRelation("child", compact ? 3 : 7);
+  candidates
+    .filter((candidate) => candidate.entry.relation === "child")
+    .sort((first, second) => first.score - second.score)
+    .forEach(show);
   showRelation("neighbor", compact ? 2 : 4);
 }
 
