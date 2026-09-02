@@ -252,11 +252,11 @@
 <section id="mind-sigil-3d" aria-labelledby="ms3-title">
   <header class="ms3-header">
     <h2 id="ms3-title">Mind as a recursive sigil space</h2>
-    <p>Each open bowl is a sigil. Vertical depth is containment; horizontal proximity is sibling neighborhood; bowl radius reflects local branching. The wave is a meta-sigil spanning siblings rather than containing them.</p>
+    <p>Each sphere with its top cut off is a sigil. Vertical depth is containment; horizontal proximity is sibling neighborhood; sphere radius reflects local branching. The wave is a meta-sigil spanning siblings rather than containing them.</p>
     <div class="ms3-legend" aria-label="Visual encoding">
-      <span class="viz-badge">open bowl · bounded inhabitable region</span>
+      <span class="viz-badge">cut-open sphere · bounded inhabitable region</span>
       <span class="viz-badge">bright sphere · current attention</span>
-      <span class="viz-badge">small inner bowls · recursive children</span>
+      <span class="viz-badge">small inner spheres · recursive children</span>
       <span class="viz-badge">standing membrane · believed-into constraint</span>
     </div>
   </header>
@@ -278,7 +278,7 @@
   <div id="ms3-scene" class="ms3-scene">
     <canvas id="ms3-canvas" aria-label="Interactive three-dimensional recursive sigil structure"></canvas>
     <div id="ms3-labels" class="ms3-label-layer" aria-hidden="true"></div>
-    <span class="ms3-help text-small">Drag to orbit · wheel to scale · select a bowl, then enter it</span>
+    <span class="ms3-help text-small">Drag to orbit · wheel to scale · select a sigil, then enter it</span>
   </div>
 
   <div id="ms3-detail" class="card ms3-detail" aria-live="polite"></div>
@@ -316,7 +316,7 @@ const metaDefinitions = {
     label: "No active meta-sigil",
     members: [],
     constraints: "—",
-    affordance: "Sibling bowls remain a neighborhood without one shared standing constraint."
+    affordance: "Sibling sigils remain a neighborhood without one shared standing constraint."
   },
   language: {
     label: "Language",
@@ -390,7 +390,7 @@ let trailLine = null;
 let currentNode = taxonomy;
 let selectedNode = taxonomy;
 let positions = new Map();
-let bowls = new Map();
+let fishbowls = new Map();
 let labelEntries = [];
 let palette = [];
 let neutralColor;
@@ -436,19 +436,29 @@ function clearWorld() {
   participantPoints = [];
   trailLine = null;
   positions = new Map();
-  bowls = new Map();
+  fishbowls = new Map();
   labelEntries = [];
   labelLayer.replaceChildren();
 }
 
-function bowlGeometry(radius, segments = 28) {
-  return new THREE.SphereGeometry(radius, segments, Math.max(8, Math.floor(segments / 2)), 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+const FISHBOWL_CUT_ANGLE = Math.PI * 0.2;
+
+function fishbowlGeometry(radius, segments = 28) {
+  return new THREE.SphereGeometry(
+    radius,
+    segments,
+    Math.max(12, segments),
+    0,
+    Math.PI * 2,
+    FISHBOWL_CUT_ANGLE,
+    Math.PI - FISHBOWL_CUT_ANGLE
+  );
 }
 
-function makeBowl(node, radius, color, interactive = true, opacity = 0.18) {
+function makeFishbowl(node, radius, color, interactive = true, opacity = 0.18) {
   const group = new THREE.Group();
   const shell = new THREE.Mesh(
-    bowlGeometry(radius),
+    fishbowlGeometry(radius),
     new THREE.MeshBasicMaterial({
       color,
       transparent: true,
@@ -457,11 +467,14 @@ function makeBowl(node, radius, color, interactive = true, opacity = 0.18) {
       side: THREE.DoubleSide
     })
   );
+  const openingRadius = radius * Math.sin(FISHBOWL_CUT_ANGLE);
+  const openingHeight = radius * Math.cos(FISHBOWL_CUT_ANGLE);
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(radius, Math.max(0.018, radius * 0.025), 8, 64),
+    new THREE.TorusGeometry(openingRadius, Math.max(0.018, radius * 0.025), 8, 64),
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity: Math.min(0.9, opacity * 3.5) })
   );
   rim.rotation.x = Math.PI / 2;
+  rim.position.y = openingHeight;
   if (interactive) {
     shell.userData.nodeId = node.id;
     rim.userData.nodeId = node.id;
@@ -501,7 +514,7 @@ function addRecursiveHints(parentGroup, node, radius, color) {
   const hintRadius = radius * 0.15;
   hints.forEach((child, index) => {
     const angle = -Math.PI / 2 + index * Math.PI * 2 / hints.length;
-    const mini = makeBowl(child, hintRadius, color, false, 0.24);
+    const mini = makeFishbowl(child, hintRadius, color, false, 0.24);
     mini.position.set(Math.cos(angle) * radius * 0.38, -radius * 0.32, Math.sin(angle) * radius * 0.38);
     parentGroup.add(mini);
   });
@@ -549,7 +562,7 @@ function updateLabels() {
 }
 
 function updateSelectionMaterials() {
-  bowls.forEach((entry, id) => {
+  fishbowls.forEach((entry, id) => {
     const selected = id === selectedNode.id;
     entry.group.scale.setScalar(selected ? 1.1 : 1);
     entry.shell.material.opacity = selected ? 0.42 : 0.18;
@@ -677,21 +690,21 @@ function renderCurrent() {
   selectedNode = currentNode;
 
   const worldRadius = 5.6;
-  const worldBowl = makeBowl(currentNode, worldRadius, neutralColor, false, 0.065);
-  worldBowl.position.y = 0;
-  worldGroup.add(worldBowl);
+  const worldFishbowl = makeFishbowl(currentNode, worldRadius, neutralColor, false, 0.065);
+  worldFishbowl.position.y = 0;
+  worldGroup.add(worldFishbowl);
 
   const layout = childLayout(currentNode.children);
   layout.forEach(({ child, x, z }, index) => {
     const descendants = countDescendants(child);
     const radius = 0.58 + Math.min(0.34, Math.log2(descendants + 1) * 0.085);
     const color = palette[index % palette.length];
-    const group = makeBowl(child, radius, color, true, 0.18);
+    const group = makeFishbowl(child, radius, color, true, 0.18);
     group.position.set(x, -1.18, z);
     addRecursiveHints(group, child, radius, color);
     worldGroup.add(group);
     positions.set(child.id, group.position.clone());
-    bowls.set(child.id, { group, shell: group.children[0], rim: group.children[1] });
+    fishbowls.set(child.id, { group, shell: group.children[0], rim: group.children[1] });
     makeLabel(child, group.position.clone().add(new THREE.Vector3(0, radius * 0.42, 0)));
   });
 
