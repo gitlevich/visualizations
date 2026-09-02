@@ -332,6 +332,7 @@ let renderer;
 let scene;
 let camera;
 let taxonomies;
+let semanticLayouts;
 let taxonomy;
 let currentNode;
 let currentTaxonomyKey = "subjectWorld";
@@ -584,27 +585,128 @@ function radialLayout(children, innerRadius, outerRadius) {
   return layout;
 }
 
+function semanticTaxonomyData() {
+  return semanticLayouts && semanticLayouts.taxonomies
+    ? semanticLayouts.taxonomies[currentTaxonomyKey]
+    : null;
+}
+
+function semanticGroupData(parentNode) {
+  if (!parentNode) return null;
+  const taxonomyData = semanticTaxonomyData();
+  return taxonomyData && taxonomyData.groups ? taxonomyData.groups[parentNode.id] : null;
+}
+
+function semanticColor(parentNode, node, fallbackIndex = 0) {
+  const group = semanticGroupData(parentNode);
+  const encoded = group && group.children ? group.children[node.id] : null;
+  if (encoded && encoded.length > 3) {
+    const orderedPalette = [5, 2, 0, 1, 3, 4];
+    const position = Math.max(0, Math.min(1, (encoded[3] + 1) * 0.5))
+      * (orderedPalette.length - 1);
+    const lower = Math.floor(position);
+    const upper = Math.min(orderedPalette.length - 1, lower + 1);
+    return palette[orderedPalette[lower]].clone().lerp(
+      palette[orderedPalette[upper]],
+      position - lower
+    );
+  }
+
+  const taxonomyData = semanticTaxonomyData();
+  const nodeData = taxonomyData && taxonomyData.nodes ? taxonomyData.nodes[node.id] : null;
+  const cluster = nodeData && Number.isInteger(nodeData.cluster)
+    ? nodeData.cluster
+    : fallbackIndex;
+  return palette[cluster % palette.length].clone();
+}
+
+function scaledSemanticLayout(parentNode, children, scale, baseY) {
+  const group = semanticGroupData(parentNode);
+  if (!group || !group.children) return null;
+  if (!children.every((child) => group.children[child.id])) return null;
+  const semanticScale = scale * (group.spread || 1);
+  return children.map((child) => {
+    const encoded = group.children[child.id];
+    return {
+      child,
+      x: encoded[0] * semanticScale,
+      y: baseY + encoded[1] * semanticScale,
+      z: encoded[2] * semanticScale
+    };
+  });
+}
+
 function childLayout(children) {
+  const baseY = worldStack.length ? -0.45 : -0.9;
+  const semantic = scaledSemanticLayout(
+    currentNode,
+    children,
+    currentWorldRadius * (worldStack.length ? 0.61 : 0.63),
+    baseY
+  );
+  if (semantic) return semantic;
   const scale = currentWorldRadius / 5.8;
-  return radialLayout(children, 2.05 * scale, 3.72 * scale);
+  return radialLayout(children, 2.05 * scale, 3.72 * scale).map((item) => ({
+    ...item,
+    y: baseY
+  }));
 }
 
-function neighborLayout(neighbors) {
-  return radialLayout(neighbors, 4.55, 6.08);
+function neighborLayout(parentNode, neighbors) {
+  if (!parentNode || !neighbors.length) return [];
+  const group = semanticGroupData(parentNode);
+  const origin = group && group.children ? group.children[currentNode.id] : null;
+  if (!origin || !neighbors.every((neighbor) => group.children[neighbor.id])) {
+    return radialLayout(neighbors, 4.55, 6.08).map((item) => ({ ...item, y: -1 }));
+  }
+
+  const innerRadius = currentWorldRadius + 0.8;
+  const outerRadius = parentWorldRadius - 0.75;
+  const availableSpan = Math.max(0, outerRadius - innerRadius);
+  const spread = group.spread || 1;
+  return neighbors.map((neighbor, index) => {
+    const encoded = group.children[neighbor.id];
+    const delta = [
+      encoded[0] - origin[0],
+      encoded[1] - origin[1],
+      encoded[2] - origin[2]
+    ];
+    let semanticDistance = Math.hypot(delta[0], delta[1], delta[2]);
+    if (semanticDistance < 1e-6) {
+      const angle = index * Math.PI * 2 / Math.max(1, neighbors.length);
+      delta[0] = Math.cos(angle);
+      delta[1] = 0;
+      delta[2] = Math.sin(angle);
+      semanticDistance = 1;
+    }
+    const direction = delta.map((value) => value / semanticDistance);
+    const normalizedDistance = Math.min(1, semanticDistance * spread / 1.55);
+    const radius = innerRadius + availableSpan * Math.pow(normalizedDistance, 0.85);
+    return {
+      child: neighbor,
+      x: direction[0] * radius,
+      y: direction[1] * radius,
+      z: direction[2] * radius
+    };
+  });
 }
 
-function addRecursiveHints(parentGroup, node, radius, color) {
+function addRecursiveHints(parentGroup, node, radius) {
   const hints = node.children.slice(0, 5);
   if (!hints.length) return;
   const hintRadius = radius * 0.13;
-  hints.forEach((child, index) => {
-    const angle = -Math.PI / 2 + index * Math.PI * 2 / hints.length;
-    const mini = makeFishbowl(child, hintRadius, color, { opacity: 0.24 });
-    mini.group.position.set(
-      Math.cos(angle) * radius * 0.38,
-      -radius * 0.34,
-      Math.sin(angle) * radius * 0.38
-    );
+  const semantic = scaledSemanticLayout(node, hints, radius * 0.34, -radius * 0.2);
+  const layout = semantic || radialLayout(hints, radius * 0.25, radius * 0.38).map((item) => ({
+    ...item,
+    y: -radius * 0.2
+  }));
+  layout.forEach((item, index) => {
+    const color = semanticColor(node, item.child, index);
+    const mini = makeFishbowl(item.child, hintRadius, color, {
+      opacity: 0.24,
+      renderOrder: 2
+    });
+    mini.group.position.set(item.x, item.y, item.z);
     parentGroup.add(mini.group);
   });
 }
@@ -860,13 +962,12 @@ function renderCurrent(options = {}) {
     worldGroup.add(parentBoundary.group);
   }
 
-  const neighborPositions = neighborLayout(neighbors);
+  const neighborPositions = neighborLayout(parentNode, neighbors);
   neighborPositions.forEach((item, index) => {
     const neighbor = item.child;
     const descendants = countDescendants(neighbor);
     const radius = 0.46 + Math.min(0.2, Math.log2(descendants + 1) * 0.05);
-    const siblingIndex = parentNode.children.findIndex((node) => node.id === neighbor.id);
-    const color = palette[(siblingIndex < 0 ? index : siblingIndex) % palette.length];
+    const color = semanticColor(parentNode, neighbor, index);
     const throughWallColor = color.clone().lerp(neutralColor, 0.58);
     const entry = makeFishbowl(neighbor, radius, throughWallColor, {
       child: true,
@@ -874,7 +975,7 @@ function renderCurrent(options = {}) {
       renderOrder: 0
     });
     entry.relation = "neighbor";
-    entry.group.position.set(item.x, -1.0, item.z);
+    entry.group.position.set(item.x, item.y, item.z);
     worldGroup.add(entry.group);
     positions.set(neighbor.id, entry.group.position.clone());
     fishbowls.set(neighbor.id, entry);
@@ -905,15 +1006,15 @@ function renderCurrent(options = {}) {
     const radius = parentNode
       ? 0.36 + Math.min(0.18, Math.log2(descendants + 1) * 0.045)
       : 0.56 + Math.min(0.34, Math.log2(descendants + 1) * 0.082);
-    const color = palette[index % palette.length];
+    const color = semanticColor(currentNode, child, index);
     const entry = makeFishbowl(child, radius, color, {
       child: true,
       opacity: 0.19,
       renderOrder: 2
     });
     entry.relation = "child";
-    entry.group.position.set(item.x, parentNode ? -0.78 : -1.32, item.z);
-    addRecursiveHints(entry.group, child, radius, color);
+    entry.group.position.set(item.x, item.y, item.z);
+    addRecursiveHints(entry.group, child, radius);
     worldGroup.add(entry.group);
     positions.set(child.id, entry.group.position.clone());
     fishbowls.set(child.id, entry);
@@ -1136,12 +1237,17 @@ async function initialize() {
   try {
     const results = await Promise.all([
       import("https://esm.sh/three@0.167.1"),
-      fetch(new URL("taxonomies.json", import.meta.url))
+      fetch(new URL("taxonomies.json", import.meta.url)),
+      fetch(new URL("semantic-layout.json", import.meta.url))
     ]);
     THREE = results[0];
-    const response = results[1];
-    if (!response.ok) throw new Error("Taxonomy data did not load");
-    taxonomies = await response.json();
+    const taxonomyResponse = results[1];
+    const semanticResponse = results[2];
+    if (!taxonomyResponse.ok || !semanticResponse.ok) {
+      throw new Error("Taxonomy data did not load");
+    }
+    taxonomies = await taxonomyResponse.json();
+    semanticLayouts = await semanticResponse.json();
 
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
