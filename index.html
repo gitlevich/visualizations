@@ -287,7 +287,7 @@
   <div id="ms3-scene" class="ms3-scene">
     <canvas id="ms3-canvas" aria-label="Interactive three-dimensional recursive sigil structure"></canvas>
     <div id="ms3-labels" class="ms3-label-layer"></div>
-    <span class="ms3-help text-small">Tap an inner sigil to enter · tap the enclosing opening to return · drag to look around</span>
+    <span class="ms3-help text-small">Tap an inner sigil to enter · tap the enclosing opening to return · drag the scene to turn it</span>
   </div>
 
   <div id="ms3-detail" class="card ms3-detail" aria-live="polite"></div>
@@ -438,6 +438,58 @@ function fishbowlGeometry(radius, segments = 30) {
   );
 }
 
+function fishbowlLattice(radius, color, opacity) {
+  const positions = [];
+  const start = FISHBOWL_CUT_ANGLE;
+  const end = Math.PI * 0.985;
+  const meridians = 10;
+  const meridianSteps = 26;
+  const latitudeFractions = [0.2, 0.4, 0.6, 0.79, 0.93];
+
+  for (let longitudeIndex = 0; longitudeIndex < meridians; longitudeIndex += 1) {
+    const longitude = longitudeIndex * Math.PI * 2 / meridians;
+    for (let step = 0; step < meridianSteps; step += 1) {
+      const firstPhi = start + (end - start) * step / meridianSteps;
+      const secondPhi = start + (end - start) * (step + 1) / meridianSteps;
+      [firstPhi, secondPhi].forEach((phi) => {
+        const ringRadius = radius * Math.sin(phi);
+        positions.push(
+          ringRadius * Math.cos(longitude),
+          radius * Math.cos(phi),
+          ringRadius * Math.sin(longitude)
+        );
+      });
+    }
+  }
+
+  latitudeFractions.forEach((fraction) => {
+    const phi = start + (end - start) * fraction;
+    const ringRadius = radius * Math.sin(phi);
+    const y = radius * Math.cos(phi);
+    const steps = 56;
+    for (let step = 0; step < steps; step += 1) {
+      const firstLongitude = step * Math.PI * 2 / steps;
+      const secondLongitude = (step + 1) * Math.PI * 2 / steps;
+      positions.push(
+        ringRadius * Math.cos(firstLongitude), y, ringRadius * Math.sin(firstLongitude),
+        ringRadius * Math.cos(secondLongitude), y, ringRadius * Math.sin(secondLongitude)
+      );
+    }
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  return new THREE.LineSegments(
+    geometry,
+    new THREE.LineBasicMaterial({
+      color,
+      transparent: true,
+      opacity,
+      depthWrite: false
+    })
+  );
+}
+
 function makeFishbowl(node, radius, color, options = {}) {
   const group = new THREE.Group();
   const opacity = options.opacity === undefined ? 0.18 : options.opacity;
@@ -488,6 +540,10 @@ function makeFishbowl(node, radius, color, options = {}) {
   }
 
   group.add(shell, rim);
+  if (options.latticeOpacity) {
+    const lattice = fishbowlLattice(radius * 1.002, color, options.latticeOpacity);
+    group.add(lattice);
+  }
   return { group, shell, rim, radius, openingHeight, openingRadius };
 }
 
@@ -746,7 +802,7 @@ function renderCurrent(options = {}) {
       parentNode,
       parentWorldRadius,
       neutralColor,
-      { opacity: 0.024 }
+      { opacity: 0.026, latticeOpacity: 0.075 }
     );
     worldGroup.add(parentBoundary.group);
   }
@@ -775,7 +831,11 @@ function renderCurrent(options = {}) {
     currentNode,
     currentWorldRadius,
     neutralColor,
-    { opacity: parentNode ? 0.09 : 0.065, exit: Boolean(parentNode) }
+    {
+      opacity: parentNode ? 0.085 : 0.072,
+      latticeOpacity: parentNode ? 0.2 : 0.16,
+      exit: Boolean(parentNode)
+    }
   );
   worldGroup.add(currentBoundary.group);
 
@@ -1038,7 +1098,7 @@ async function initialize() {
         moved = true;
       }
       yaw -= dx * 0.008;
-      pitch = Math.max(0.17, Math.min(1.22, pitch + dy * 0.006));
+      pitch = Math.max(0.17, Math.min(1.22, pitch - dy * 0.006));
       lastPointer = { x: event.clientX, y: event.clientY };
     });
 
